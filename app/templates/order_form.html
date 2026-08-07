@@ -3,33 +3,46 @@
 
 {% block content %}
 <div class="row justify-content-center">
-  <div class="col-md-6 col-lg-5">
-    <h1 class="mb-4">🆕 Новый заказ</h1>
+  <div class="col-md-7 col-lg-6">
+    <div class="card-crm animate-in">
+      <div class="card-body p-4">
+        <h1 class="page-header mb-1"><i class="bi bi-plus-circle me-2"></i>Новый заказ</h1>
+        <p class="text-muted small mb-4">Заполните данные клиента и прикрепите файлы</p>
 
-    {% if error %}
-      <div class="alert alert-danger">{{ error }}</div>
-    {% endif %}
+        {% if error %}
+          <div class="alert alert-danger alert-crm">{{ error }}</div>
+        {% endif %}
 
-    <form method="post">
-      <div class="mb-3">
-        <label for="customer" class="form-label">Клиент *</label>
-        <input type="text" name="customer" id="customer"
-               class="form-control" placeholder="Имя или название компании"
-               value="{{ request.form.get('customer', '') }}" required autofocus>
+        <form method="post" enctype="multipart/form-data">
+          <div class="mb-3">
+            <label for="customer" class="form-label fw-semibold">Клиент <span class="text-danger">*</span></label>
+            <input type="text" name="customer" id="customer"
+                   class="form-control" placeholder="Имя или название компании"
+                   value="{{ request.form.get('customer', '') }}" required autofocus>
+          </div>
+
+          <div class="mb-3">
+            <label for="description" class="form-label fw-semibold">Описание</label>
+            <textarea name="description" id="description" rows="3"
+                      class="form-control"
+                      placeholder="Детали заказа">{{ request.form.get('description', '') }}</textarea>
+          </div>
+
+          <div class="mb-4">
+            <label for="files" class="form-label fw-semibold"><i class="bi bi-paperclip me-1"></i> Вложения</label>
+            <input type="file" name="files" id="files" class="form-control" multiple>
+            <div class="form-text">PDF, Word, Excel, картинки, архивы — до 16 МБ каждый</div>
+          </div>
+
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-crm btn-crm-primary">
+              <i class="bi bi-check-lg me-1"></i> Сохранить
+            </button>
+            <a href="{{ url_for('main.index') }}" class="btn btn-outline-secondary btn-crm">Отмена</a>
+          </div>
+        </form>
       </div>
-
-      <div class="mb-3">
-        <label for="description" class="form-label">Описание</label>
-        <textarea name="description" id="description" rows="3"
-                  class="form-control"
-                  placeholder="Детали заказа">{{ request.form.get('description', '') }}</textarea>
-      </div>
-
-      <div class="d-flex gap-2">
-        <button type="submit" class="btn btn-success">Сохранить</button>
-        <a href="{{ url_for('main.index') }}" class="btn btn-outline-secondary">Отмена</a>
-      </div>
-    </form>
+    </div>
   </div>
 </div>
 {% endblock %}

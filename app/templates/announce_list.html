@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Доска объявлений — CRM{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 animate-in">
+  <h1 class="page-header mb-0"><i class="bi bi-megaphone me-2"></i>Доска объявлений</h1>
+  <a class="btn btn-crm btn-crm-primary" href="{{ url_for('main.announcement_create') }}">
+    <i class="bi bi-plus-lg me-1"></i> Написать
+  </a>
+</div>
+
+<div class="card-crm animate-in p-3 p-md-4">
+  {% if announcements %}
+    {% for ann in announcements %}
+    <div class="board-card">
+      <div class="row align-items-start g-3">
+        <div class="col">
+          <h2 class="board-title">{{ ann.title }}</h2>
+          <div class="board-body mt-2">{{ ann.formatted_body() | safe }}</div>
+        </div>
+        <div class="col-auto text-end">
+          <div class="board-date text-muted">{{ ann.created_at.strftime('%d.%m.%Y в %H:%M') }}</div>
+          <div class="board-actions mt-1">
+            <a href="{{ url_for('main.announcement_edit', ann_id=ann.id) }}"
+               class="btn btn-sm btn-outline-secondary btn-crm me-1" title="Редактировать">
+              <i class="bi bi-pencil"></i>
+            </a>
+            <form method="post"
+                  action="{{ url_for('main.announcement_delete', ann_id=ann.id) }}"
+                  style="display:inline"
+                  onsubmit="return confirm('Удалить объявление «{{ ann.title }}»?')">
+              <button class="btn btn-sm btn-outline-danger btn-crm" title="Удалить">
+                <i class="bi bi-trash"></i>
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="empty-board py-5">
+      <i class="bi bi-chat-square-text"></i>
+      <p class="text-muted small">Объявлений пока нет</p>
+      <a href="{{ url_for('main.announcement_create') }}" class="btn btn-crm btn-crm-primary btn-sm mt-2">
+        <i class="bi bi-plus-lg me-1"></i> Первое объявление
+      </a>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

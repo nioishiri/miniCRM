@@ -2,35 +2,41 @@
 {% block title %}Список заказов — CRM{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-  <h1>Заказы</h1>
-  <a class="btn btn-primary" href="{{ url_for('main.order_create') }}">+ Новый заказ</a>
+<div class="d-flex justify-content-between align-items-center mb-4 animate-in">
+  <h1 class="page-header mb-0"><i class="bi bi-list-ul me-2"></i>Заказы</h1>
+  <a class="btn btn-crm btn-crm-primary" href="{{ url_for('main.order_create') }}">
+    <i class="bi bi-plus-lg me-1"></i> Новый заказ
+  </a>
 </div>
 
-{# Filter bar #}
-<form method="get" class="row g-2 mb-4">
-  <div class="col-auto">
-    <select name="status" class="form-select">
-      <option value="">Все статусы</option>
-      {% for value, label in status_choices %}
-        <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>
-      {% endfor %}
-    </select>
-  </div>
-  <div class="col-auto">
-    <button type="submit" class="btn btn-outline-secondary">Фильтр</button>
-  </div>
-  {% if status_filter %}
-    <div class="col-auto">
-      <a href="{{ url_for('main.index') }}" class="btn btn-outline-danger btn-sm">Сбросить</a>
+{# Tab navigation #}
+<div class="animate-in mb-4">
+  <div class="card-crm">
+    <div class="card-body py-2 px-2">
+      <div class="d-flex flex-wrap gap-1">
+        {% set tabs = [
+          ('',        'bi-list-ul',       'Все'),
+          ('active',  'bi-hourglass-split', 'Активные'),
+          ('done',    'bi-check-circle',  'Выполненные'),
+          ('cancelled','bi-x-circle',     'Отменённые'),
+        ] %}
+        {% for tab, icon, label in tabs %}
+          {% set active = current_tab == tab %}
+          <a href="{{ url_for('main.index', tab=tab) if tab else url_for('main.index') }}"
+             class="btn btn-crm {% if active %}btn-crm-primary{% else %}btn-outline-secondary{% endif %} d-flex align-items-center gap-1"
+             style="border-radius: 10px;">
+            <i class="bi {{ icon }}"></i> {{ label }}
+          </a>
+        {% endfor %}
+      </div>
     </div>
-  {% endif %}
-</form>
+  </div>
+</div>
 
 {% if orders %}
-  <div class="table-responsive">
-    <table class="table table-hover align-middle">
-      <thead class="table-light">
+  <div class="table-responsive animate-in">
+    <table class="table table-crm align-middle">
+      <thead>
         <tr>
           <th>#</th>
           <th>Клиент</th>
@@ -43,19 +49,23 @@
       <tbody>
         {% for order in orders %}
         <tr>
-          <td><a href="{{ url_for('main.order_detail', order_id=order.id) }}">{{ order.id }}</a></td>
-          <td>{{ order.customer }}</td>
-          <td>{{ order.description[:60] }}{% if order.description|length > 60 %}…{% endif %}</td>
+          <td><a href="{{ url_for('main.order_detail', order_id=order.id) }}" class="fw-bold text-decoration-none">#{{ order.id }}</a></td>
+          <td class="fw-medium">{{ order.customer }}</td>
+          <td class="text-muted small">{{ order.description[:60] }}{% if order.description|length > 60 %}…{% endif %}</td>
           <td>{{ order.status_badge() | safe }}</td>
-          <td>{{ order.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
+          <td class="text-muted small">{{ order.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
           <td class="text-end">
-            <a class="btn btn-sm btn-outline-secondary me-1"
-               href="{{ url_for('main.order_detail', order_id=order.id) }}">🔍</a>
+            <a class="btn btn-sm btn-outline-secondary btn-crm me-1"
+               href="{{ url_for('main.order_detail', order_id=order.id) }}" title="Просмотр">
+              <i class="bi bi-eye"></i>
+            </a>
             <form method="post"
                   action="{{ url_for('main.order_delete', order_id=order.id) }}"
                   style="display:inline"
                   onsubmit="return confirm('Удалить заказ #{{ order.id }}?')">
-              <button class="btn btn-sm btn-outline-danger">🗑</button>
+              <button class="btn btn-sm btn-outline-danger btn-crm" title="Удалить">
+                <i class="bi bi-trash"></i>
+              </button>
             </form>
           </td>
         </tr>
@@ -64,13 +74,20 @@
     </table>
   </div>
 {% else %}
-  <div class="alert alert-info">
-    {% if status_filter %}
-      Нет заказов со статусом «{{ dict(status_choices)[status_filter] }}».
-      <a href="{{ url_for('main.index') }}">Показать все</a>.
-    {% else %}
-      Заказов пока нет. <a href="{{ url_for('main.order_create') }}">Создать первый</a>.
-    {% endif %}
+  <div class="card-crm animate-in">
+    <div class="card-body empty-state">
+      <i class="bi bi-inbox"></i>
+      {% if current_tab %}
+        {% set tab_names = {'active': 'активных', 'done': 'выполненных', 'cancelled': 'отменённых'} %}
+        <p class="mb-2">Нет {{ tab_names.get(current_tab, '') }} заказов</p>
+        <a href="{{ url_for('main.index') }}" class="btn btn-crm btn-crm-primary btn-sm">Показать все</a>
+      {% else %}
+        <p class="mb-2">Заказов пока нет</p>
+        <a href="{{ url_for('main.order_create') }}" class="btn btn-crm btn-crm-primary btn-sm">
+          <i class="bi bi-plus-lg me-1"></i> Создать первый
+        </a>
+      {% endif %}
+    </div>
   </div>
 {% endif %}
 {% endblock %}

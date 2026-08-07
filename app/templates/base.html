@@ -5,26 +5,414 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}CRM — Заказы{% endblock %}</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
   <style>
-    body { padding-top: 1rem; padding-bottom: 2rem; }
+    /* ============================================================
+       Дизайн-система: modern minimal
+       Один акцент, волосяные линии, мягкие тональные статусы.
+       ============================================================ */
+    :root {
+      color-scheme: light;
+
+      --bg:            oklch(98.6% 0.003 250);
+      --surface:       oklch(100% 0 0);
+      --surface-muted: oklch(97.4% 0.004 250);
+      --fg:            oklch(22% 0.015 260);
+      --muted:         oklch(54% 0.015 260);
+      --faint:         oklch(66% 0.012 260);
+      --border:        oklch(91.5% 0.006 260);
+      --border-strong: oklch(86% 0.008 260);
+
+      --accent:       oklch(58% 0.18 255);
+      --accent-hover: oklch(50% 0.19 255);
+      --accent-ink:   oklch(45% 0.17 255);
+      --success:      oklch(58% 0.13 155);
+      --warn:         oklch(74% 0.13 82);
+      --danger:       oklch(56% 0.20 27);
+
+      --crm-radius: 12px;
+      --crm-radius-sm: 8px;
+
+      /* Оверрайды Bootstrap 5.3 */
+      --bs-body-bg: var(--bg);
+      --bs-body-color: var(--fg);
+      --bs-heading-color: var(--fg);
+      --bs-border-color: var(--border);
+      --bs-border-radius: var(--crm-radius-sm);
+      --bs-primary: var(--accent);      --bs-primary-rgb: 23,121,225;
+      --bs-secondary: #737b87;          --bs-secondary-rgb: 115,123,135;
+      --bs-success: #249057;            --bs-success-rgb: 36,144,87;
+      --bs-danger: #d02c2a;             --bs-danger-rgb: 208,44,42;
+      --bs-warning: #e0af3b;            --bs-warning-rgb: 224,175,59;
+      --bs-info: #559eb4;               --bs-info-rgb: 85,158,180;
+      --bs-link-color-rgb: 23,121,225;
+      --bs-link-hover-color-rgb: 0,94,203;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--fg);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+      font-size: .9375rem;
+      min-height: 100vh;
+    }
+
+    ::selection { background: color-mix(in oklab, var(--accent) 18%, var(--surface)); }
+    .min-width-0 { min-width: 0; }
+
+    /* ---------- Навбар: светлый, матовый, волосяная линия ---------- */
+    .navbar-crm {
+      background: color-mix(in oklab, var(--surface) 84%, transparent);
+      -webkit-backdrop-filter: blur(12px) saturate(160%);
+      backdrop-filter: blur(12px) saturate(160%);
+      border-bottom: 1px solid var(--border);
+      box-shadow: none;
+    }
+    .navbar-crm.navbar-dark .navbar-brand {
+      color: var(--fg);
+      font-weight: 700;
+      font-size: 1.1rem;
+      letter-spacing: -.02em;
+    }
+    .navbar-crm.navbar-dark .navbar-brand .bi { color: var(--accent); }
+    .navbar-crm.navbar-dark .navbar-brand:hover { color: var(--accent); transform: none; }
+    .navbar-crm.navbar-dark .nav-link {
+      color: var(--muted);
+      font-weight: 500;
+      border-radius: var(--crm-radius-sm);
+      padding: .42rem .85rem;
+      transition: background .15s, color .15s;
+    }
+    .navbar-crm.navbar-dark .nav-link:hover,
+    .navbar-crm.navbar-dark .nav-link:focus {
+      color: var(--fg);
+      background: var(--surface-muted);
+      transform: none;
+    }
+
+    /* ---------- Карточки ---------- */
+    .card-crm {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--crm-radius);
+      box-shadow: none;
+    }
+    .card-crm:hover { transform: none; box-shadow: none; }
+    .card-crm .card-header {
+      background: var(--surface-muted);
+      border-bottom: 1px solid var(--border);
+      border-radius: calc(var(--crm-radius) - 1px) calc(var(--crm-radius) - 1px) 0 0 !important;
+      color: var(--fg);
+      font-weight: 600;
+      font-size: .85rem;
+      padding: .65rem 1.25rem;
+    }
+    .card-crm .card-header .bi { color: var(--muted); }
+
+    /* ---------- Таблица ---------- */
+    .table-crm {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--crm-radius);
+      overflow: hidden;
+      box-shadow: none;
+      font-variant-numeric: tabular-nums;
+    }
+    .table-crm thead th {
+      background: var(--surface-muted);
+      color: var(--muted);
+      font-weight: 600;
+      font-size: .72rem;
+      text-transform: uppercase;
+      letter-spacing: .07em;
+      border-bottom: 1px solid var(--border);
+      padding: .68rem 1rem;
+      white-space: nowrap;
+    }
+    .table-crm tbody td { padding: .8rem 1rem; vertical-align: middle; }
+    .table-crm tbody tr + tr { border-top: 1px solid var(--border); }
+    .table-crm tbody tr { transition: background .12s; }
+    .table-crm tbody tr:hover { background: var(--surface-muted); }
+
+    /* ---------- Кнопки ---------- */
+    .btn-crm {
+      border-radius: var(--crm-radius-sm);
+      font-weight: 600;
+      letter-spacing: -.01em;
+      transition: background .15s, color .15s, border-color .15s;
+    }
+    .btn-crm:hover { transform: none; box-shadow: none; }
+    .btn-crm-primary {
+      background: var(--accent);
+      border: 1px solid var(--accent);
+      color: #fff;
+      box-shadow: 0 1px 2px oklch(0 0 0 / .10);
+    }
+    .btn-crm-primary:hover {
+      background: var(--accent-hover);
+      border-color: var(--accent-hover);
+      color: #fff;
+      box-shadow: 0 2px 8px color-mix(in oklab, var(--accent) 35%, transparent);
+    }
+    .btn-crm-primary:focus-visible {
+      background: var(--accent-hover);
+      color: #fff;
+      box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 25%, transparent);
+    }
+    .btn-outline-primary {
+      --bs-btn-color: var(--accent-ink);
+      --bs-btn-border-color: oklch(81% 0.06 255);
+      --bs-btn-hover-color: var(--accent-ink);
+      --bs-btn-hover-bg: color-mix(in oklab, var(--accent) 9%, var(--surface));
+      --bs-btn-hover-border-color: oklch(68% 0.10 255);
+      --bs-btn-active-color: var(--accent-ink);
+      --bs-btn-active-bg: color-mix(in oklab, var(--accent) 14%, var(--surface));
+      --bs-btn-active-border-color: oklch(68% 0.10 255);
+    }
+    .btn-outline-secondary {
+      --bs-btn-color: var(--muted);
+      --bs-btn-border-color: var(--border-strong);
+      --bs-btn-hover-color: var(--fg);
+      --bs-btn-hover-bg: var(--surface-muted);
+      --bs-btn-hover-border-color: var(--border-strong);
+      --bs-btn-active-color: var(--fg);
+      --bs-btn-active-bg: var(--surface-muted);
+      --bs-btn-active-border-color: var(--border-strong);
+    }
+    .btn-outline-danger {
+      --bs-btn-color: var(--danger);
+      --bs-btn-border-color: oklch(78% 0.06 27);
+      --bs-btn-hover-color: oklch(48% 0.19 27);
+      --bs-btn-hover-bg: color-mix(in oklab, var(--danger) 9%, var(--surface));
+      --bs-btn-hover-border-color: oklch(64% 0.13 27);
+      --bs-btn-active-color: oklch(48% 0.19 27);
+      --bs-btn-active-bg: color-mix(in oklab, var(--danger) 14%, var(--surface));
+      --bs-btn-active-border-color: oklch(64% 0.13 27);
+    }
+
+    /* ---------- Бейджи статусов ---------- */
+    .badge {
+      font-size: .74rem;
+      font-weight: 600;
+      letter-spacing: .01em;
+      padding: .4em .75em;
+      border-radius: 999px;
+    }
+    .badge.bg-primary {
+      background: color-mix(in oklab, var(--accent) 13%, var(--surface)) !important;
+      color: var(--accent-ink) !important;
+    }
+    .badge.bg-warning {
+      background: color-mix(in oklab, var(--warn) 18%, var(--surface)) !important;
+      color: oklch(43% 0.11 70) !important;
+    }
+    .badge.bg-success {
+      background: color-mix(in oklab, var(--success) 13%, var(--surface)) !important;
+      color: oklch(41% 0.11 155) !important;
+    }
+    .badge.bg-secondary {
+      background: var(--surface-muted) !important;
+      color: var(--muted) !important;
+    }
+    .badge.bg-light {
+      background: var(--surface-muted) !important;
+      color: var(--muted) !important;
+    }
+
+    /* ---------- Алерты ---------- */
+    .alert-crm {
+      border: 1px solid var(--border);
+      border-radius: var(--crm-radius);
+      font-size: .9rem;
+      animation: slideDown .3s ease-out;
+    }
+    .alert-success {
+      background: color-mix(in oklab, var(--success) 10%, var(--surface));
+      border-color: color-mix(in oklab, var(--success) 28%, var(--surface));
+      color: oklch(39% 0.10 155);
+    }
+    .alert-info {
+      background: color-mix(in oklab, var(--accent) 9%, var(--surface));
+      border-color: color-mix(in oklab, var(--accent) 24%, var(--surface));
+      color: var(--accent-ink);
+    }
+    .alert-warning {
+      background: color-mix(in oklab, var(--warn) 14%, var(--surface));
+      border-color: color-mix(in oklab, var(--warn) 32%, var(--surface));
+      color: oklch(42% 0.10 70);
+    }
+    .alert-danger {
+      background: color-mix(in oklab, var(--danger) 8%, var(--surface));
+      border-color: color-mix(in oklab, var(--danger) 26%, var(--surface));
+      color: oklch(42% 0.16 27);
+    }
+    .alert-secondary {
+      background: var(--surface-muted);
+      border-color: var(--border);
+      color: var(--muted);
+    }
+    .alert-light {
+      background: var(--surface);
+      border-color: var(--border);
+      color: var(--fg);
+    }
+    .alert .btn-close { opacity: .45; }
+    .alert .btn-close:hover { opacity: .8; }
+
+    /* ---------- Формы ---------- */
+    .form-control, .form-select {
+      background-color: var(--surface);
+      border-color: var(--border-strong);
+      border-radius: var(--crm-radius-sm);
+      font-size: .9375rem;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .form-control:focus, .form-select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 16%, transparent);
+    }
+    .form-check-input {
+      border-color: var(--border-strong);
+      border-width: 1.5px;
+    }
+    .form-check-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 16%, transparent);
+    }
+    .form-check-input:checked {
+      background-color: var(--accent);
+      border-color: var(--accent);
+    }
+    .form-label { margin-bottom: .35rem; }
+    .form-text { color: var(--faint); font-size: .8rem; }
+
+    /* ---------- Вложения ---------- */
+    .att-item {
+      display: flex;
+      align-items: center;
+      gap: .85rem;
+      padding: .75rem 1.25rem;
+      border: none;
+      transition: background .12s;
+    }
+    .att-item:hover { background: var(--surface-muted); }
+    .att-item .bi { font-size: 1.35rem; color: var(--accent); }
+    .att-preview {
+      max-width: 100%;
+      max-height: 240px;
+      border-radius: var(--crm-radius-sm);
+      border: 1px solid var(--border);
+      margin-top: .5rem;
+    }
+
+    /* ---------- Разное ---------- */
+    .page-header {
+      font-weight: 700;
+      letter-spacing: -.02em;
+      color: var(--fg);
+    }
+    .page-header .bi { color: var(--muted); font-size: .85em; }
+    .breadcrumb { font-size: .82rem; }
+    .breadcrumb-item a { color: var(--muted); text-decoration: none; }
+    .breadcrumb-item a:hover { color: var(--accent); }
+    .breadcrumb-item.active { color: var(--faint); }
+    .empty-state {
+      padding: 3rem 1rem;
+      text-align: center;
+      color: var(--faint);
+    }
+    .empty-state .bi {
+      font-size: 2.5rem;
+      display: block;
+      margin-bottom: .75rem;
+      color: var(--border-strong);
+    }
+    .list-group-item { border-color: var(--border); }
+    .text-muted { color: var(--muted) !important; }
+    .text-dark { color: var(--fg) !important; }
+    .text-danger { color: var(--danger) !important; }
+
+    /* ---------- Анимации ---------- */
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateY(-6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .animate-in { animation: fadeIn .35s ease-out; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .animate-in, .alert-crm { animation: none; }
+      * { transition: none !important; }
+    }
+
+    /* ---------- Доска объявлений ---------- */
+    .board-card {
+      border-bottom: 1px solid var(--border);
+      padding: 1.5rem 0;
+    }
+    .board-card:last-child { border-bottom: none; padding-bottom: 0; }
+    .board-title {
+      font-weight: 600;
+      font-size: 1.1rem;
+      letter-spacing: -.01em;
+      color: var(--fg);
+    }
+    .board-body {
+      color: var(--muted);
+      line-height: 1.65;
+      font-size: .92rem;
+    }
+    .board-date {
+      color: var(--faint);
+      font-size: .8rem;
+    }
+    .board-actions {
+      opacity: .45;
+      transition: opacity .15s;
+    }
+    .board-card:hover .board-actions { opacity: 1; }
+    .empty-board .bi {
+      font-size: 3rem;
+      color: var(--border-strong);
+      display: block;
+      margin-bottom: .75rem;
+    }
   </style>
   {% block extra_head %}{% endblock %}
 </head>
 <body>
-  <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+
+  <nav class="navbar navbar-expand-lg navbar-dark navbar-crm sticky-top">
     <div class="container">
-      <a class="navbar-brand" href="{{ url_for('main.index') }}">📋 Мини-CRM</a>
-      <div class="navbar-nav">
-        <a class="nav-link" href="{{ url_for('main.order_create') }}">+ Новый заказ</a>
+      <a class="navbar-brand" href="{{ url_for('main.index') }}">
+        <i class="bi bi-clipboard-check me-1"></i> Мини-CRM
+      </a>
+      <div class="navbar-nav ms-auto">
+        <a class="nav-link" href="{{ url_for('main.board_list') }}">
+          <i class="bi bi-megaphone me-1"></i> Доска
+        </a>
+        <a class="nav-link" href="{{ url_for('main.order_create') }}">
+          <i class="bi bi-plus-circle me-1"></i> Новый заказ
+        </a>
       </div>
     </div>
   </nav>
 
-  <main class="container">
+  <main class="container py-4">
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         {% for category, message in messages %}
-          <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+          {% set alert_class = {
+              'success': 'alert-success',
+              'warning': 'alert-warning',
+              'danger': 'alert-danger',
+              'info': 'alert-info',
+              'secondary': 'alert-secondary',
+          }.get(category, 'alert-light') %}
+          <div class="alert {{ alert_class }} alert-crm alert-dismissible fade show animate-in" role="alert">
             {{ message }}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
           </div>

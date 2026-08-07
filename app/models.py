@@ -1,4 +1,6 @@
 from datetime import datetime, timezone
+import os
+import uuid
 from app import db
 
 
@@ -19,6 +21,12 @@ class Order(db.Model):
         nullable=False,
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+    # Relationships
+    attachments = db.relationship(
+        "Attachment", back_populates="order",
+        cascade="all, delete-orphan", order_by="Attachment.uploaded_at"
     )
 
     STATUS_CHOICES = [
@@ -44,3 +52,86 @@ class Order(db.Model):
 
     def __repr__(self) -> str:
         return f"<Order #{self.id} [{self.status}]>"
+
+
+class Attachment(db.Model):
+    __tablename__ = "attachments"
+
+    id = db.Column(db.Integer, primary_key=True)
+    order_id = db.Column(db.Integer, db.ForeignKey("orders.id"), nullable=False)
+    filename = db.Column(db.String(500), nullable=False)       # original name
+    stored_name = db.Column(db.String(500), nullable=False)    # UUID on disk
+    file_size = db.Column(db.Integer, nullable=False, default=0)
+    mime_type = db.Column(db.String(200), nullable=False, default="application/octet-stream")
+    uploaded_at = db.Column(
+        db.DateTime, nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    order = db.relationship("Order", back_populates="attachments")
+
+    @staticmethod
+    def generate_stored_name(original_filename: str) -> str:
+        ext = os.path.splitext(original_filename)[1]
+        return f"{uuid.uuid4().hex}{ext}"
+
+    @property
+    def is_image(self) -> bool:
+        return self.mime_type.startswith("image/")
+
+    @property
+    def icon_class(self) -> str:
+        """Return a Bootstrap icon class based on file type."""
+        mt = self.mime_type
+        if mt.startswith("image/"):
+            return "bi-file-image"
+        if mt == "application/pdf":
+            return "bi-file-pdf"
+        if "word" in mt or "document" in mt:
+            return "bi-file-word"
+        if "spreadsheet" in mt or "excel" in mt:
+            return "bi-file-excel"
+        if mt.startswith("text/"):
+            return "bi-file-text"
+        if mt.startswith("video/"):
+            return "bi-file-play"
+        if "zip" in mt or "rar" in mt or "tar" in mt:
+            return "bi-file-zip"
+        return "bi-file-earmark"
+
+    @staticmethod
+    def format_size(size_bytes: int) -> str:
+        for unit in ("Б", "КБ", "МБ", "ГБ"):
+            if size_bytes < 1024:
+                return f"{size_bytes:.0f} {unit}" if unit == "Б" else f"{size_bytes:.1f} {unit}"
+            size_bytes /= 1024
+        return f"{size_bytes:.1f} ТБ"
+
+    def __repr__(self) -> str:
+        return f"<Attachment {self.filename}>"
+
+
+# ===================================================================
+# Board / Announcements
+# ===================================================================
+
+class Announcement(db.Model):
+    __tablename__ = "announcements"
+
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(300), nullable=False)
+    body = db.Column(db.Text, nullable=False, default="")
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+
+    def formatted_body(self) -> str:
+        """Render simple line-break paragraphs."""
+        return "<br>".join(f"<p>{p.strip()}</p>" for p in self.body.split("\n") if p.strip())
+
+    def short_preview(self, max_len: int = 120) -> str:
+        text = " ".join(self.body.split())
+        if len(text) > max_len:
+            return text[:max_len].rsplit(" ", 1)[0] + "…"
+        return text
+
+    def __repr__(self) -> str:
+        return f"<Announcement #{self.id}: {self.title}>"

@@ -4,12 +4,19 @@ from flask_sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy()
 
+# Max upload size: 16 MB
+MAX_UPLOAD_SIZE = 16 * 1024 * 1024
+
 
 def create_app() -> Flask:
     app = Flask(__name__, instance_relative_config=True)
 
-    # Ensure instance folder exists
+    # Ensure instance and uploads folders exist
     os.makedirs(app.instance_path, exist_ok=True)
+    app.config["UPLOAD_FOLDER"] = os.path.join(app.instance_path, "uploads")
+    os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+
+    app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_SIZE
 
     # Database: SQLite file inside instance folder (mounted as volume in Docker)
     db_path = os.path.join(app.instance_path, "crm.sqlite")
