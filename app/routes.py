@@ -10,6 +10,18 @@ from app.models import Order, Attachment, Announcement, User
 
 bp = Blueprint("main", __name__)
 
+
+def admin_required(f):
+    """Decorator: redirects non-admin users."""
+    from functools import wraps
+    @wraps(f)
+    @login_required
+    def decorated(*args, **kwargs):
+        if current_user.role != "admin":
+            return "Forbidden", 403
+        return f(*args, **kwargs)
+    return decorated
+
 ALLOWED_EXTENSIONS = {
     # Documents
     "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx",
@@ -312,3 +324,69 @@ def announcement_delete(ann_id: int):
     return redirect(url_for("main.board_list"))
 
 
+
+# ===================================================================
+# Admin panel
+# ===================================================================
+
+@login_required
+@admin_required
+@bp.route("/admin/users")
+def admin_users():
+    users = User.query.order_by(User.created_at.desc()).all()
+    return render_template("admin_users.html", users=users)
+
+
+@login_required
+@admin_required
+@bp.route("/admin/users", methods=["POST"])
+def admin_create_user():
+    username = request.form.get("username", "").strip()
+    password = request.form.get("password", "")
+    display = request.form.get("display_name", "").strip()
+    role = request.form.get("role", "user")
+
+    if not username or not password:
+        flash("Логин и пароль обязательны", "danger")
+        return redirect(url_for("main.admin_users"))
+
+    if User.query.filter_by(username=username).first():
+        flash(f"Пользователь «{username}» уже существует", "danger")
+        return redirect(url_for("main.admin_users"))
+
+    u = User(username=username, display_name=display or username, role=role)
+    u.set_password(password)
+    db.session.add(u)
+    db.session.commit()
+    flash(f"Пользователь «{username}» создан", "success")
+    return redirect(url_for("main.admin_users"))
+
+
+@login_required
+@admin_required
+@bp.route("/admin/users/<int:user_id>/toggle", methods=["POST"])
+def admin_toggle_user(user_id: int):
+    u = db.get_or_404(User, user_id)
+    if u.id == current_user.id:
+        flash("Нельзя заблокировать самого себя", "warning")
+        return redirect(url_for("main.admin_users"))
+    u.is_active_user = not u.is_active_user
+    db.session.commit()
+    status = "разблокирован" if u.is_active_user else "заблокирован"
+    flash(f"Пользователь «{u.username}» {status}", "info")
+    return redirect(url_for("main.admin_users"))
+
+
+@login_required
+@admin_required
+@bp.route("/admin/users/<int:user_id>/reset-password", methods=["POST"])
+def admin_reset_password(user_id: int):
+    u = db.get_or_404(User, user_id)
+    new_pwd = request.form.get("password", "")
+    if not new_pwd:
+        flash("Пароль не может быть пустым", "danger")
+        return redirect(url_for("main.admin_users"))
+    u.set_password(new_pwd)
+    db.session.commit()
+    flash(f"Пароль пользователя «{u.username}» изменён", "info")
+    return redirect(url_for("main.admin_users"))

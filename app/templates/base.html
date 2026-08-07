@@ -399,6 +399,11 @@
           <a class="nav-link" href="{{ url_for('main.board_list') }}">
             <i class="bi bi-megaphone me-1"></i> Доска
           </a>
+          {% if current_user.role == 'admin' %}
+          <a class="nav-link" href="{{ url_for('main.admin_users') }}">
+            <i class="bi bi-gear me-1"></i> Админка
+          </a>
+          {% endif %}
           <a class="nav-link" href="{{ url_for('main.order_create') }}">
             <i class="bi bi-plus-circle me-1"></i> Новый заказ
           </a>
