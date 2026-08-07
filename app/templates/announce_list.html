@@ -16,10 +16,12 @@
       <div class="row align-items-start g-3">
         <div class="col">
           <h2 class="board-title">{{ ann.title }}</h2>
+          <small class="text-muted" style="font-size:.8rem;">
+            <i class="bi bi-person-fill me-1"></i>{{ ann.creator.name_or_username if ann.creator else '—' }}
+            · {{ ann.created_at.strftime('%d.%m.%Y в %H:%M') }}
+          </small>
           <div class="board-body mt-2">{{ ann.formatted_body() | safe }}</div>
         </div>
-        <div class="col-auto text-end">
-          <div class="board-date text-muted">{{ ann.created_at.strftime('%d.%m.%Y в %H:%M') }}</div>
           <div class="board-actions mt-1">
             <a href="{{ url_for('main.announcement_edit', ann_id=ann.id) }}"
                class="btn btn-sm btn-outline-secondary btn-crm me-1" title="Редактировать">

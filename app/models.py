@@ -1,7 +1,37 @@
 from datetime import datetime, timezone
 import os
 import uuid
+from werkzeug.security import generate_password_hash, check_password_hash
+from flask_login import UserMixin
 from app import db
+
+
+class User(UserMixin, db.Model):
+    __tablename__ = "users"
+
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False, index=True)
+    password_hash = db.Column(db.String(256), nullable=False)
+    display_name = db.Column(db.String(200), nullable=False, default="")
+    role = db.Column(db.String(20), nullable=False, default="user")
+    is_active_user = db.Column(db.Boolean, nullable=False, default=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+
+    orders = db.relationship("Order", back_populates="creator", lazy="dynamic", order_by="Order.created_at.desc()")
+    announcements = db.relationship("Announcement", back_populates="creator", lazy="dynamic", order_by="Announcement.created_at.desc()")
+
+    def set_password(self, pwd: str) -> None:
+        self.password_hash = generate_password_hash(pwd)
+
+    def check_password(self, pwd: str) -> bool:
+        return check_password_hash(self.password_hash, pwd)
+
+    @property
+    def name_or_username(self) -> str:
+        return self.display_name or self.username
+
+    def __repr__(self) -> str:
+        return f"<User {self.username}>"
 
 
 class Order(db.Model):
@@ -15,6 +45,7 @@ class Order(db.Model):
         nullable=False,
         default="new",
     )
+    creator_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
     updated_at = db.Column(
         db.DateTime,
@@ -28,6 +59,7 @@ class Order(db.Model):
         "Attachment", back_populates="order",
         cascade="all, delete-orphan", order_by="Attachment.uploaded_at"
     )
+    creator = db.relationship("User", back_populates="orders")
 
     STATUS_CHOICES = [
         ("new", "Новый"),
@@ -121,7 +153,10 @@ class Announcement(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(300), nullable=False)
     body = db.Column(db.Text, nullable=False, default="")
+    creator_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+
+    creator = db.relationship("User", back_populates="announcements")
 
     def formatted_body(self) -> str:
         """Render simple line-break paragraphs."""

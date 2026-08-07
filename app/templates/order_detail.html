@@ -23,6 +23,10 @@
           <span>{{ order.status_badge() | safe }}</span>
         </li>
         <li class="list-group-item d-flex justify-content-between px-4">
+          <strong>Автор:</strong>
+          <span>{{ order.creator.name_or_username if order.creator else '—' }}</span>
+        </li>
+        <li class="list-group-item d-flex justify-content-between px-4">
           <strong>Создан:</strong>
           <span class="text-muted">{{ order.created_at.strftime('%d.%m.%Y в %H:%M') }}</span>
         </li>

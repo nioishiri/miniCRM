@@ -3,9 +3,10 @@ from flask import (
     Blueprint, current_app, flash, redirect,
     render_template, request, send_from_directory, url_for,
 )
+from flask_login import login_required, current_user, login_user, logout_user
 from werkzeug.utils import secure_filename
 from app import db
-from app.models import Order, Attachment, Announcement
+from app.models import Order, Attachment, Announcement, User
 
 bp = Blueprint("main", __name__)
 
@@ -68,9 +69,51 @@ def _remove_file(stored_name: str) -> None:
         os.remove(path)
 
 
+
+
+# ===================================================================
+# Auth helpers
+# ===================================================================
+
+@bp.before_request
+def require_auth():
+    if request.endpoint == "main.login":
+        return
+    if not current_user.is_authenticated:
+        return redirect(url_for("main.login", next=request.full_path))
+
+
+@bp.route("/login", methods=["GET", "POST"])
+def login():
+    if current_user.is_authenticated:
+        return redirect(url_for("main.index"))
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+        user = User.query.filter_by(username=username).first()
+        if user is None or not user.check_password(password):
+            flash("Неверный логин или пароль", "danger")
+            return render_template("login.html", error=True)
+        if not user.is_active_user:
+            flash("Аккаунт заблокирован", "warning")
+            return render_template("login.html", error=True)
+        login_user(user)
+        next_page = request.args.get("next")
+        return redirect(next_page or url_for("main.index"))
+    return render_template("login.html")
+
+
+@bp.route("/logout")
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for("main.login"))
+
+
 # ---------------------------------------------------------------------------
 # Order list (home page)
 # ---------------------------------------------------------------------------
+@login_required
 @bp.route("/")
 def index():
     status_filter = request.args.get("tab", "").strip()
@@ -95,6 +138,7 @@ def index():
 # ---------------------------------------------------------------------------
 # Create a new order
 # ---------------------------------------------------------------------------
+@login_required
 @bp.route("/order/new", methods=["GET", "POST"])
 def order_create():
     if request.method == "POST":
@@ -104,7 +148,7 @@ def order_create():
         if not customer:
             return render_template("order_form.html", error="Имя клиента обязательно")
 
-        order = Order(customer=customer, description=description, status="new")
+        order = Order(customer=customer, description=description, status="new", creator_id=current_user.id)
         db.session.add(order)
         db.session.commit()
 
@@ -117,6 +161,7 @@ def order_create():
 # ---------------------------------------------------------------------------
 # View a single order
 # ---------------------------------------------------------------------------
+@login_required
 @bp.route("/order/<int:order_id>")
 def order_detail(order_id: int):
     order = db.get_or_404(Order, order_id)
@@ -126,6 +171,7 @@ def order_detail(order_id: int):
 # ---------------------------------------------------------------------------
 # Change order status
 # ---------------------------------------------------------------------------
+@login_required
 @bp.route("/order/<int:order_id>/status", methods=["POST"])
 def order_change_status(order_id: int):
     order = db.get_or_404(Order, order_id)
@@ -144,6 +190,7 @@ def order_change_status(order_id: int):
 # ---------------------------------------------------------------------------
 # Delete an order
 # ---------------------------------------------------------------------------
+@login_required
 @bp.route("/order/<int:order_id>/delete", methods=["POST"])
 def order_delete(order_id: int):
     order = db.get_or_404(Order, order_id)
@@ -160,6 +207,7 @@ def order_delete(order_id: int):
 # ---------------------------------------------------------------------------
 # Upload attachment(s) to an existing order
 # ---------------------------------------------------------------------------
+@login_required
 @bp.route("/order/<int:order_id>/upload", methods=["POST"])
 def upload_attachment(order_id: int):
     order = db.get_or_404(Order, order_id)
@@ -170,6 +218,7 @@ def upload_attachment(order_id: int):
 # ---------------------------------------------------------------------------
 # Download attachment
 # ---------------------------------------------------------------------------
+@login_required
 @bp.route("/attachment/<int:attachment_id>/download")
 def download_attachment(attachment_id: int):
     att = db.get_or_404(Attachment, attachment_id)
@@ -184,6 +233,7 @@ def download_attachment(attachment_id: int):
 # ---------------------------------------------------------------------------
 # Delete attachment
 # ---------------------------------------------------------------------------
+@login_required
 @bp.route("/attachment/<int:attachment_id>/delete", methods=["POST"])
 def delete_attachment(attachment_id: int):
     att = db.get_or_404(Attachment, attachment_id)
@@ -199,12 +249,14 @@ def delete_attachment(attachment_id: int):
 # Board / Announcements
 # ===================================================================
 
+@login_required
 @bp.route("/board")
 def board_list():
     announcements = Announcement.query.order_by(Announcement.created_at.desc()).all()
     return render_template("announce_list.html", announcements=announcements)
 
 
+@login_required
 @bp.route("/board/new", methods=["GET", "POST"])
 def announcement_create():
     if request.method == "POST":
@@ -217,7 +269,7 @@ def announcement_create():
                 prev_title=title, prev_body=body,
             )
 
-        a = Announcement(title=title, body=body)
+        a = Announcement(title=title, body=body, creator_id=current_user.id)
         db.session.add(a)
         db.session.commit()
         flash("Объявление опубликовано", "success")
@@ -226,6 +278,7 @@ def announcement_create():
     return render_template("announcement_form.html")
 
 
+@login_required
 @bp.route("/board/<int:ann_id>/edit", methods=["GET", "POST"])
 def announcement_edit(ann_id: int):
     ann = db.get_or_404(Announcement, ann_id)
@@ -249,6 +302,7 @@ def announcement_edit(ann_id: int):
     return render_template("announcement_form.html", announcement=ann)
 
 
+@login_required
 @bp.route("/board/<int:ann_id>/delete", methods=["POST"])
 def announcement_delete(ann_id: int):
     ann = db.get_or_404(Announcement, ann_id)

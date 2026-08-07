@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Вход — CRM{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-5 col-lg-4">
+    <div class="card-crm animate-in">
+      <div class="card-body p-4">
+        <div class="text-center mb-4">
+          <i class="bi bi-person-circle" style="font-size:2.5rem;color:var(--accent);"></i>
+          <h4 class="mt-2 fw-bold">Вход в систему</h4>
+        </div>
+
+        {% if error %}
+          <div class="alert alert-danger alert-crm text-center">Неверный логин или пароль</div>
+        {% endif %}
+
+        <form method="post">
+          <div class="mb-3">
+            <label for="username" class="form-label fw-semibold">Логин</label>
+            <input type="text" name="username" id="username" class="form-control" required autofocus placeholder="admin">
+          </div>
+
+          <div class="mb-4">
+            <label for="password" class="form-label fw-semibold">Пароль</label>
+            <input type="password" name="password" id="password" class="form-control" required placeholder="••••••••">
+          </div>
+
+          <button type="submit" class="btn btn-crm btn-crm-primary w-100">
+            <i class="bi bi-box-arrow-in-right me-1"></i> Войти
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
