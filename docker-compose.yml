@@ -1,0 +1,10 @@
+services:
+  crm:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/app/instance   # persist SQLite database outside container
+    restart: unless-stopped
+    environment:
+      - SECRET_KEY=change-me-to-random-string

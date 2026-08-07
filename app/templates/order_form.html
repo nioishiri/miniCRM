@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Новый заказ — CRM{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-6 col-lg-5">
+    <h1 class="mb-4">🆕 Новый заказ</h1>
+
+    {% if error %}
+      <div class="alert alert-danger">{{ error }}</div>
+    {% endif %}
+
+    <form method="post">
+      <div class="mb-3">
+        <label for="customer" class="form-label">Клиент *</label>
+        <input type="text" name="customer" id="customer"
+               class="form-control" placeholder="Имя или название компании"
+               value="{{ request.form.get('customer', '') }}" required autofocus>
+      </div>
+
+      <div class="mb-3">
+        <label for="description" class="form-label">Описание</label>
+        <textarea name="description" id="description" rows="3"
+                  class="form-control"
+                  placeholder="Детали заказа">{{ request.form.get('description', '') }}</textarea>
+      </div>
+
+      <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-success">Сохранить</button>
+        <a href="{{ url_for('main.index') }}" class="btn btn-outline-secondary">Отмена</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
