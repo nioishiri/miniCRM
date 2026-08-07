@@ -47,4 +47,5 @@ if __name__ == "__main__":
             db.session.commit()
             print(f"Пользователь создан: {username} (ROLE: {user.role})")
     else:
-        app.run(host="0.0.0.0", port=8080, debug=True)
+        # Production — no reload (causes loops in docker)
+        app.run(host="0.0.0.0", port=8080, debug=False)
