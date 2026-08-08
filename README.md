@@ -17,7 +17,7 @@
 
 ```bash
 # Клонировать
-git clone https://github.com/<you>/mini-crm
+git clone https://github.com/nioishiri/mini-crm
 cd mini-crm
 
 # Запустить
