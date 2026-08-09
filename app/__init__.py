@@ -56,7 +56,7 @@ def _migrate_db(db_path: str) -> None:
         # (it is a no-op inside an open transaction)
         conn.commit()
 
-        # Rebuild attachments table if it lacks announcement_id or has NOT NULL order_id
+        # Rebuild attachments table if it lacks a supported owner column or has NOT NULL order_id.
         # (SQLite can't alter column nullability — full rebuild required)
         cur.execute("PRAGMA table_info(attachments)")
         att_info = cur.fetchall()
@@ -64,8 +64,10 @@ def _migrate_db(db_path: str) -> None:
             att_cols = {row[1]: row for row in att_info}
             order_id_notnull = bool(att_cols.get("order_id") and att_cols["order_id"][3])
             has_ann_col = "announcement_id" in att_cols
+            has_comment_col = "comment_id" in att_cols
+            has_ann_comment_col = "announcement_comment_id" in att_cols
 
-            if order_id_notnull or not has_ann_col:
+            if order_id_notnull or not has_ann_col or not has_comment_col or not has_ann_comment_col:
                 cur.execute("PRAGMA foreign_keys=OFF")
                 # Drop leftovers from a previously interrupted migration
                 cur.execute("DROP TABLE IF EXISTS attachments_new")
@@ -74,6 +76,8 @@ def _migrate_db(db_path: str) -> None:
                         id INTEGER NOT NULL,
                         order_id INTEGER,
                         announcement_id INTEGER,
+                        comment_id INTEGER,
+                        announcement_comment_id INTEGER,
                         filename VARCHAR(500) NOT NULL,
                         stored_name VARCHAR(500) NOT NULL,
                         file_size INTEGER NOT NULL,
@@ -81,17 +85,36 @@ def _migrate_db(db_path: str) -> None:
                         uploaded_at DATETIME NOT NULL,
                         PRIMARY KEY (id),
                         FOREIGN KEY(order_id) REFERENCES orders (id),
-                        FOREIGN KEY(announcement_id) REFERENCES announcements (id)
+                        FOREIGN KEY(announcement_id) REFERENCES announcements (id),
+                        FOREIGN KEY(comment_id) REFERENCES order_comments (id),
+                        FOREIGN KEY(announcement_comment_id) REFERENCES announcement_comments (id)
                     )
                 """)
-                cur.execute("""
-                    INSERT INTO attachments_new (id, order_id, filename, stored_name, file_size, mime_type, uploaded_at)
-                    SELECT id, order_id, filename, stored_name, file_size, mime_type, uploaded_at FROM attachments
+                announcement_id_value = "announcement_id" if has_ann_col else "NULL"
+                cur.execute(f"""
+                    INSERT INTO attachments_new (id, order_id, announcement_id, comment_id, filename, stored_name, file_size, mime_type, uploaded_at)
+                    SELECT id, order_id, {announcement_id_value}, comment_id, filename, stored_name, file_size, mime_type, uploaded_at FROM attachments
                 """)
                 cur.execute("DROP TABLE attachments")
                 cur.execute("ALTER TABLE attachments_new RENAME TO attachments")
                 cur.execute("PRAGMA foreign_keys=ON")
-                print("[migrate] Rebuilt attachments table (announcement support)")
+                print("[migrate] Rebuilt attachments table (announcement and comment support)")
+
+        # Create announcement_comments table if not exists
+        cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='announcement_comments'")
+        if not cur.fetchone():
+            cur.execute("""
+                CREATE TABLE announcement_comments (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    announcement_id INTEGER NOT NULL,
+                    author_id INTEGER NOT NULL,
+                    body TEXT NOT NULL DEFAULT '',
+                    created_at DATETIME NOT NULL,
+                    FOREIGN KEY(announcement_id) REFERENCES announcements (id),
+                    FOREIGN KEY(author_id) REFERENCES users (id)
+                )
+            """)
+            print("[migrate] Created announcement_comments table")
 
         # Create order_statuses table if not exists
         cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='order_statuses'")

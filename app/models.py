@@ -22,6 +22,8 @@ class User(UserMixin, db.Model):
 
     orders = db.relationship("Order", back_populates="creator", lazy="dynamic", order_by="Order.created_at.desc()")
     announcements = db.relationship("Announcement", back_populates="creator", lazy="dynamic", order_by="Announcement.created_at.desc()")
+    comments = db.relationship("OrderComment", back_populates="author", lazy="dynamic", order_by="OrderComment.created_at.desc()")
+    announcement_comments = db.relationship("AnnouncementComment", back_populates="author", lazy="dynamic", order_by="AnnouncementComment.created_at.desc()")
 
     def set_password(self, pwd: str) -> None:
         self.password_hash = generate_password_hash(pwd)
@@ -78,6 +80,10 @@ class Order(db.Model):
         "Attachment", back_populates="order",
         cascade="all, delete-orphan", order_by="Attachment.uploaded_at"
     )
+    comments = db.relationship(
+        "OrderComment", back_populates="order",
+        cascade="all, delete-orphan", order_by="OrderComment.created_at"
+    )
     creator = db.relationship("User", back_populates="orders")
 
     STATUS_CHOICES = [
@@ -113,12 +119,56 @@ class Order(db.Model):
         return f"<Order #{self.id} [{self.status}]>"
 
 
+class OrderComment(db.Model):
+    """A discussion message left by a user on an order."""
+    __tablename__ = "order_comments"
+
+    id = db.Column(db.Integer, primary_key=True)
+    order_id = db.Column(db.Integer, db.ForeignKey("orders.id"), nullable=False, index=True)
+    author_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    body = db.Column(db.Text, nullable=False, default="")
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+
+    order = db.relationship("Order", back_populates="comments")
+    author = db.relationship("User", back_populates="comments")
+    attachments = db.relationship(
+        "Attachment", back_populates="comment",
+        cascade="all, delete-orphan", order_by="Attachment.uploaded_at"
+    )
+
+    def __repr__(self) -> str:
+        return f"<OrderComment #{self.id} order={self.order_id}>"
+
+
+class AnnouncementComment(db.Model):
+    """A discussion message left by a user on an announcement."""
+    __tablename__ = "announcement_comments"
+
+    id = db.Column(db.Integer, primary_key=True)
+    announcement_id = db.Column(db.Integer, db.ForeignKey("announcements.id"), nullable=False, index=True)
+    author_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    body = db.Column(db.Text, nullable=False, default="")
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+
+    announcement = db.relationship("Announcement", back_populates="comments")
+    author = db.relationship("User", back_populates="announcement_comments")
+    attachments = db.relationship(
+        "Attachment", back_populates="announcement_comment",
+        cascade="all, delete-orphan", order_by="Attachment.uploaded_at"
+    )
+
+    def __repr__(self) -> str:
+        return f"<AnnouncementComment #{self.id} announcement={self.announcement_id}>"
+
+
 class Attachment(db.Model):
     __tablename__ = "attachments"
 
     id = db.Column(db.Integer, primary_key=True)
     order_id = db.Column(db.Integer, db.ForeignKey("orders.id"), nullable=True)
     announcement_id = db.Column(db.Integer, db.ForeignKey("announcements.id"), nullable=True)
+    comment_id = db.Column(db.Integer, db.ForeignKey("order_comments.id"), nullable=True)
+    announcement_comment_id = db.Column(db.Integer, db.ForeignKey("announcement_comments.id"), nullable=True)
     filename = db.Column(db.String(500), nullable=False)       # original name
     stored_name = db.Column(db.String(500), nullable=False)    # UUID on disk
     file_size = db.Column(db.Integer, nullable=False, default=0)
@@ -130,6 +180,8 @@ class Attachment(db.Model):
 
     order = db.relationship("Order", back_populates="attachments")
     announcement = db.relationship("Announcement", back_populates="attachments")
+    comment = db.relationship("OrderComment", back_populates="attachments")
+    announcement_comment = db.relationship("AnnouncementComment", back_populates="attachments")
 
     @staticmethod
     def generate_stored_name(original_filename: str) -> str:
@@ -189,6 +241,10 @@ class Announcement(db.Model):
     attachments = db.relationship(
         "Attachment", back_populates="announcement",
         cascade="all, delete-orphan", order_by="Attachment.uploaded_at"
+    )
+    comments = db.relationship(
+        "AnnouncementComment", back_populates="announcement",
+        cascade="all, delete-orphan", order_by="AnnouncementComment.created_at"
     )
 
     def formatted_body(self) -> str:

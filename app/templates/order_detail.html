@@ -45,6 +45,61 @@
 
     <div class="card-crm mb-4 animate-in">
       <div class="card-header">
+        <i class="bi bi-chat-square-text me-1"></i> Комментарии
+        <span class="badge bg-primary ms-2">{{ order.comments|length }}</span>
+      </div>
+      <div class="card-body p-0">
+        {% if order.comments %}
+          <div class="p-3 p-md-4 pb-0">
+            {% for comment in order.comments %}
+            <div class="comment-item {% if not loop.last %}mb-4 pb-4 border-bottom{% endif %}">
+              <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+                {% if comment.author %}
+                  <span class="author-badge" style="background:{{ comment.author.display_color }};">
+                    <i class="bi bi-person-fill me-1"></i>{{ comment.author.name_or_username }}
+                  </span>
+                {% else %}
+                  <span class="text-muted">Удалённый пользователь</span>
+                {% endif %}
+                <small class="text-muted text-nowrap">{{ comment.created_at.strftime('%d.%m.%Y в %H:%M') }}</small>
+              </div>
+              {% if comment.body %}
+                <div class="comment-body">{{ comment.body | e | replace('\n', '<br>') | safe }}</div>
+              {% endif %}
+              {% if comment.attachments %}
+                <div class="list-group mt-3">
+                  {% set attachments = comment.attachments %}
+                  {% include "_attachment_list.html" %}
+                </div>
+              {% endif %}
+            </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="empty-state py-4">
+            <i class="bi bi-chat-square-text"></i>
+            <p class="mb-0">Комментариев пока нет</p>
+          </div>
+        {% endif %}
+
+        <form method="post" action="{{ url_for('main.order_add_comment', order_id=order.id) }}"
+              enctype="multipart/form-data" class="border-top p-3 p-md-4">
+          <label for="comment-body" class="form-label fw-semibold">Новый комментарий</label>
+          <textarea name="body" id="comment-body" rows="3" class="form-control mb-3"
+                    placeholder="Напишите сообщение для коллег…"></textarea>
+          <div class="d-flex flex-column flex-md-row gap-2 align-items-md-center">
+            <input type="file" name="files" class="form-control" multiple>
+            <button type="submit" class="btn btn-crm btn-crm-primary text-nowrap">
+              <i class="bi bi-send me-1"></i> Отправить
+            </button>
+          </div>
+          <div class="form-text">Можно прикрепить PDF, Excel, Word, изображения и архивы — до 16 МБ каждый</div>
+        </form>
+      </div>
+    </div>
+
+    <div class="card-crm mb-4 animate-in">
+      <div class="card-header">
         <i class="bi bi-paperclip me-1"></i> Вложения
         <span class="badge bg-primary ms-2">{{ order.attachments|length }}</span>
       </div>

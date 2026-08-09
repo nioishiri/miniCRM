@@ -9,7 +9,7 @@ from flask_login import login_required, current_user, login_user, logout_user
 from sqlalchemy.orm import joinedload
 from werkzeug.utils import secure_filename
 from app import db
-from app.models import Order, Attachment, Announcement, User, OrderStatus
+from app.models import Order, OrderComment, AnnouncementComment, Attachment, Announcement, User, OrderStatus
 
 bp = Blueprint("main", __name__)
 
@@ -42,8 +42,13 @@ def _allowed_file(filename: str) -> bool:
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
-def _save_attachments(order: Order | None = None, announcement: Announcement | None = None) -> None:
-    """Save uploaded files from request and attach them to an order or announcement."""
+def _save_attachments(
+    order: Order | None = None,
+    announcement: Announcement | None = None,
+    comment: OrderComment | None = None,
+    announcement_comment: AnnouncementComment | None = None,
+) -> None:
+    """Save uploaded files and attach them to an order, announcement, comment, or announcement comment."""
     upload_folder = current_app.config["UPLOAD_FOLDER"]
     files = request.files.getlist("files")
 
@@ -73,6 +78,10 @@ def _save_attachments(order: Order | None = None, announcement: Announcement | N
             attachment.order = order
         if announcement is not None:
             attachment.announcement = announcement
+        if comment is not None:
+            attachment.comment = comment
+        if announcement_comment is not None:
+            attachment.announcement_comment = announcement_comment
         db.session.add(attachment)
         flash(f"Файл «{original}» прикреплён", "success")
 
@@ -189,6 +198,28 @@ def order_detail(order_id: int):
 
 
 # ---------------------------------------------------------------------------
+# Add a comment to an order
+# ---------------------------------------------------------------------------
+@login_required
+@bp.route("/order/<int:order_id>/comments", methods=["POST"])
+def order_add_comment(order_id: int):
+    order = db.get_or_404(Order, order_id)
+    body = request.form.get("body", "").strip()
+    files = [f for f in request.files.getlist("files") if f and f.filename]
+
+    if not body and not files:
+        flash("Напишите комментарий или прикрепите файл", "warning")
+        return redirect(url_for("main.order_detail", order_id=order.id))
+
+    comment = OrderComment(order=order, author=current_user, body=body)
+    db.session.add(comment)
+    db.session.commit()
+    _save_attachments(comment=comment)
+    flash("Комментарий добавлен", "success")
+    return redirect(url_for("main.order_detail", order_id=order.id))
+
+
+# ---------------------------------------------------------------------------
 # Change order status
 # ---------------------------------------------------------------------------
 @login_required
@@ -218,6 +249,9 @@ def order_delete(order_id: int):
 
     for att in order.attachments:
         _remove_file(att.stored_name)
+    for comment in order.comments:
+        for att in comment.attachments:
+            _remove_file(att.stored_name)
 
     db.session.delete(order)
     db.session.commit()
@@ -260,12 +294,18 @@ def download_attachment(attachment_id: int):
 def delete_attachment(attachment_id: int):
     att = db.get_or_404(Attachment, attachment_id)
     order_id = att.order_id
+    comment_order_id = att.comment.order_id if att.comment else None
+    ann_comment_ann_id = att.announcement_comment.announcement_id if att.announcement_comment else None
     _remove_file(att.stored_name)
     db.session.delete(att)
     db.session.commit()
     flash(f"Файл «{att.filename}» удалён", "secondary")
     if order_id:
         return redirect(url_for("main.order_detail", order_id=order_id))
+    if comment_order_id:
+        return redirect(url_for("main.order_detail", order_id=comment_order_id))
+    if ann_comment_ann_id:
+        return redirect(url_for("main.board_list"))
     return redirect(url_for("main.board_list"))
 
 
@@ -334,11 +374,35 @@ def announcement_delete(ann_id: int):
     ann = db.get_or_404(Announcement, ann_id)
     for att in ann.attachments:
         _remove_file(att.stored_name)
+    for comment in ann.comments:
+        for att in comment.attachments:
+            _remove_file(att.stored_name)
     db.session.delete(ann)
     db.session.commit()
     flash("Объявление удалено", "secondary")
     return redirect(url_for("main.board_list"))
 
+
+# ---------------------------------------------------------------------------
+# Add a comment to an announcement
+# ---------------------------------------------------------------------------
+@login_required
+@bp.route("/board/<int:ann_id>/comments", methods=["POST"])
+def announcement_add_comment(ann_id: int):
+    ann = db.get_or_404(Announcement, ann_id)
+    body = request.form.get("body", "").strip()
+    files = [f for f in request.files.getlist("files") if f and f.filename]
+
+    if not body and not files:
+        flash("Напишите комментарий или прикрепите файл", "warning")
+        return redirect(url_for("main.board_list"))
+
+    comment = AnnouncementComment(announcement=ann, author=current_user, body=body)
+    db.session.add(comment)
+    db.session.commit()
+    _save_attachments(announcement_comment=comment)
+    flash("Комментарий добавлен", "success")
+    return redirect(url_for("main.board_list"))
 
 
 # ===================================================================
