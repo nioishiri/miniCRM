@@ -236,10 +236,11 @@ def upload_attachment(order_id: int):
 def download_attachment(attachment_id: int):
     att = db.get_or_404(Attachment, attachment_id)
     upload_folder = current_app.config["UPLOAD_FOLDER"]
+    force_download = request.args.get("download") == "1"
     return send_from_directory(
         upload_folder, att.stored_name,
         download_name=att.filename,
-        as_attachment=True,
+        as_attachment=force_download,
     )
 
 
