@@ -1,10 +1,12 @@
 import os
+import re
 import mimetypes
 from flask import (
     Blueprint, current_app, flash, redirect,
     render_template, request, send_from_directory, url_for,
 )
 from flask_login import login_required, current_user, login_user, logout_user
+from sqlalchemy.orm import joinedload
 from werkzeug.utils import secure_filename
 from app import db
 from app.models import Order, Attachment, Announcement, User, OrderStatus
@@ -130,7 +132,7 @@ def logout():
 @bp.route("/")
 def index():
     status_filter = request.args.get("tab", "").strip()
-    query = Order.query.order_by(Order.updated_at.desc())
+    query = Order.query.options(joinedload(Order.creator)).order_by(Order.updated_at.desc())
 
     if status_filter == "active":
         query = query.filter(Order.status.in_(["new", "in_progress"]))
@@ -405,6 +407,11 @@ def admin_reset_password(user_id: int):
 @admin_required
 @bp.route("/admin/statuses", methods=["GET", "POST"])
 def admin_statuses():
+    ALLOWED_COLORS = {
+        "bg-primary", "bg-success", "bg-warning text-dark",
+        "bg-danger", "bg-info", "bg-secondary", "bg-dark",
+    }
+
     if request.method == "POST":
         slug = request.form.get("slug", "").strip().lower().replace(" ", "_")
         label = request.form.get("label", "").strip()
@@ -414,6 +421,13 @@ def admin_statuses():
             flash("Slug и название обязательны", "danger")
             return redirect(url_for("main.admin_statuses"))
 
+        if not re.fullmatch(r"[a-z0-9_]+", slug):
+            flash("Slug может содержать только латинские буквы, цифры и _", "danger")
+            return redirect(url_for("main.admin_statuses"))
+
+        if color not in ALLOWED_COLORS:
+            color = "bg-primary"
+
         if OrderStatus.query.filter_by(slug=slug).first():
             flash(f"Статус «{slug}» уже существует", "danger")
             return redirect(url_for("main.admin_statuses"))
@@ -421,8 +435,12 @@ def admin_statuses():
         max_order = db.session.query(db.func.max(OrderStatus.sort_order)).scalar() or 0
         status = OrderStatus(slug=slug, label=label, color=color, sort_order=max_order + 1)
         db.session.add(status)
-        db.session.commit()
-        flash(f"Статус «{label}» создан", "success")
+        try:
+            db.session.commit()
+            flash(f"Статус «{label}» создан", "success")
+        except Exception:
+            db.session.rollback()
+            flash("Ошибка при создании статуса. Проверьте лог сервера.", "danger")
         return redirect(url_for("main.admin_statuses"))
 
     statuses = OrderStatus.get_all()
@@ -433,6 +451,11 @@ def admin_statuses():
 @admin_required
 @bp.route("/admin/statuses/<int:status_id>/edit", methods=["POST"])
 def admin_edit_status(status_id: int):
+    ALLOWED_COLORS = {
+        "bg-primary", "bg-success", "bg-warning text-dark",
+        "bg-danger", "bg-info", "bg-secondary", "bg-dark",
+    }
+
     status = db.get_or_404(OrderStatus, status_id)
     label = request.form.get("label", "").strip()
     color = request.form.get("color", "bg-primary").strip()
@@ -442,11 +465,20 @@ def admin_edit_status(status_id: int):
         flash("Название обязательно", "danger")
         return redirect(url_for("main.admin_statuses"))
 
+    if color not in ALLOWED_COLORS:
+        color = "bg-primary"
+
     status.label = label
     status.color = color
-    status.is_active = is_active
-    db.session.commit()
-    flash(f"Статус «{label}» обновлён", "success")
+    # System statuses cannot be deactivated (disabled checkbox sends nothing)
+    if not status.is_system:
+        status.is_active = is_active
+    try:
+        db.session.commit()
+        flash(f"Статус «{label}» обновлён", "success")
+    except Exception:
+        db.session.rollback()
+        flash("Ошибка при обновлении статуса", "danger")
     return redirect(url_for("main.admin_statuses"))
 
 

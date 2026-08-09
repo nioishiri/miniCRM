@@ -56,7 +56,7 @@
           <td>{{ order.status_badge() | safe }}</td>
           <td class="small">
             {% if order.creator %}
-              <span class="author-badge" style="background:{{ order.creator.color }};">
+              <span class="author-badge" style="background:{{ order.creator.display_color }};">
                 {{ order.creator.name_or_username }}
               </span>
             {% else %}

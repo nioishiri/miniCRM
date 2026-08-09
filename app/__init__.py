@@ -1,6 +1,8 @@
 import os
 import sqlite3
-from flask import Flask
+import traceback
+from datetime import timedelta
+from flask import Flask, render_template
 from flask_login import LoginManager
 from flask_sqlalchemy import SQLAlchemy
 
@@ -32,6 +34,23 @@ def _migrate_db(db_path: str) -> None:
                 if col_name not in existing_cols:
                     cur.execute(f"ALTER TABLE {table} ADD COLUMN {col_name} {col_type}")
                     print(f"[migrate] Added {table}.{col_name}")
+
+        # Assign colors to users that don't have one yet
+        palette = [
+            "#4A90D9", "#50C878", "#FF6B6B", "#FFA07A", "#9B59B6",
+            "#3498DB", "#E74C3C", "#2ECC71", "#F39C12", "#1ABC9C",
+            "#34495E", "#16A085", "#C0392B", "#8E44AD", "#2980B9",
+            "#27AE60", "#D35400", "#E67E22",
+        ]
+        cur.execute("SELECT id FROM users WHERE color IS NULL OR color = ''")
+        no_color_rows = cur.fetchall()
+        for i, (uid,) in enumerate(no_color_rows):
+            cur.execute(
+                "UPDATE users SET color = ? WHERE id = ?",
+                (palette[i % len(palette)], uid),
+            )
+        if no_color_rows:
+            print(f"[migrate] Assigned colors to {len(no_color_rows)} users")
 
         # Create order_statuses table if not exists
         cur.execute("""
@@ -95,7 +114,14 @@ def create_app() -> Flask:
     db_path = os.path.join(app.instance_path, "crm.sqlite")
     app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{db_path}"
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+    # SQLite: wait for locks instead of instant "database is locked" errors
+    app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+        "connect_args": {"timeout": 15},
+        "pool_pre_ping": True,
+    }
     app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-change-me")
+    # Session lifetime: 7 days (applies to permanent sessions)
+    app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=7)
 
     db.init_app(app)
     login_manager.init_app(app)
@@ -115,5 +141,12 @@ def create_app() -> Flask:
     # Register blueprint
     from app.routes import bp
     app.register_blueprint(bp)
+
+    @app.errorhandler(500)
+    def internal_error(e):
+        """Log full traceback and roll back the session on server errors."""
+        traceback.print_exc()
+        db.session.rollback()
+        return render_template("500.html"), 500
 
     return app

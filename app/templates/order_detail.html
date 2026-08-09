@@ -25,7 +25,7 @@
         <li class="list-group-item d-flex justify-content-between px-4">
           <strong>Автор:</strong>
           {% if order.creator %}
-            <span class="author-badge" style="background:{{ order.creator.color }};">
+            <span class="author-badge" style="background:{{ order.creator.display_color }};">
               {{ order.creator.name_or_username }}
             </span>
           {% else %}

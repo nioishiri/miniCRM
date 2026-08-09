@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 import os
 import uuid
 import random
+from flask import g
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import UserMixin
 from app import db
@@ -31,6 +32,11 @@ class User(UserMixin, db.Model):
     @property
     def name_or_username(self) -> str:
         return self.display_name or self.username
+
+    @property
+    def display_color(self) -> str:
+        """Color for badges, with fallback for users without assigned color."""
+        return self.color or "#6C757D"
 
     @staticmethod
     def generate_random_color() -> str:
@@ -90,14 +96,14 @@ class Order(db.Model):
 
     def status_label(self) -> str:
         """Get status label from database or fallback to system choices."""
-        status = OrderStatus.query.filter_by(slug=self.status, is_active=True).first()
+        status = OrderStatus.get_map().get(self.status)
         if status:
             return status.label
         return dict(self.STATUS_CHOICES).get(self.status, self.status)
 
     def status_badge(self) -> str:
         """Get status badge HTML from database or fallback."""
-        status = OrderStatus.query.filter_by(slug=self.status, is_active=True).first()
+        status = OrderStatus.get_map().get(self.status)
         if status:
             return f'<span class="badge {status.color}">{status.label}</span>'
         css = self.STATUS_COLORS.get(self.status, "badge bg-light text-dark")
@@ -217,6 +223,25 @@ class OrderStatus(db.Model):
     def get_all():
         """Get all statuses ordered by sort_order."""
         return OrderStatus.query.order_by(OrderStatus.sort_order).all()
+
+    @staticmethod
+    def get_map() -> dict:
+        """Get {slug: OrderStatus} map of active statuses, cached per-request."""
+        try:
+            cache = getattr(g, "_status_map", None)
+            if cache is None:
+                cache = {
+                    s.slug: s
+                    for s in OrderStatus.query.filter_by(is_active=True).all()
+                }
+                g._status_map = cache
+            return cache
+        except RuntimeError:
+            # Outside request context (CLI, shell) — no caching available
+            return {
+                s.slug: s
+                for s in OrderStatus.query.filter_by(is_active=True).all()
+            }
 
     def __repr__(self) -> str:
         return f"<OrderStatus {self.slug}: {self.label}>"
