@@ -117,7 +117,8 @@ class Attachment(db.Model):
     __tablename__ = "attachments"
 
     id = db.Column(db.Integer, primary_key=True)
-    order_id = db.Column(db.Integer, db.ForeignKey("orders.id"), nullable=False)
+    order_id = db.Column(db.Integer, db.ForeignKey("orders.id"), nullable=True)
+    announcement_id = db.Column(db.Integer, db.ForeignKey("announcements.id"), nullable=True)
     filename = db.Column(db.String(500), nullable=False)       # original name
     stored_name = db.Column(db.String(500), nullable=False)    # UUID on disk
     file_size = db.Column(db.Integer, nullable=False, default=0)
@@ -128,6 +129,7 @@ class Attachment(db.Model):
     )
 
     order = db.relationship("Order", back_populates="attachments")
+    announcement = db.relationship("Announcement", back_populates="attachments")
 
     @staticmethod
     def generate_stored_name(original_filename: str) -> str:
@@ -184,6 +186,10 @@ class Announcement(db.Model):
     created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 
     creator = db.relationship("User", back_populates="announcements")
+    attachments = db.relationship(
+        "Attachment", back_populates="announcement",
+        cascade="all, delete-orphan", order_by="Attachment.uploaded_at"
+    )
 
     def formatted_body(self) -> str:
         """Render simple line-break paragraphs."""

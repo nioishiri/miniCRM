@@ -52,19 +52,62 @@ def _migrate_db(db_path: str) -> None:
         if no_color_rows:
             print(f"[migrate] Assigned colors to {len(no_color_rows)} users")
 
+        # Flush pending work so PRAGMA foreign_keys=OFF below actually applies
+        # (it is a no-op inside an open transaction)
+        conn.commit()
+
+        # Rebuild attachments table if it lacks announcement_id or has NOT NULL order_id
+        # (SQLite can't alter column nullability — full rebuild required)
+        cur.execute("PRAGMA table_info(attachments)")
+        att_info = cur.fetchall()
+        if att_info:
+            att_cols = {row[1]: row for row in att_info}
+            order_id_notnull = bool(att_cols.get("order_id") and att_cols["order_id"][3])
+            has_ann_col = "announcement_id" in att_cols
+
+            if order_id_notnull or not has_ann_col:
+                cur.execute("PRAGMA foreign_keys=OFF")
+                # Drop leftovers from a previously interrupted migration
+                cur.execute("DROP TABLE IF EXISTS attachments_new")
+                cur.execute("""
+                    CREATE TABLE attachments_new (
+                        id INTEGER NOT NULL,
+                        order_id INTEGER,
+                        announcement_id INTEGER,
+                        filename VARCHAR(500) NOT NULL,
+                        stored_name VARCHAR(500) NOT NULL,
+                        file_size INTEGER NOT NULL,
+                        mime_type VARCHAR(200) NOT NULL,
+                        uploaded_at DATETIME NOT NULL,
+                        PRIMARY KEY (id),
+                        FOREIGN KEY(order_id) REFERENCES orders (id),
+                        FOREIGN KEY(announcement_id) REFERENCES announcements (id)
+                    )
+                """)
+                cur.execute("""
+                    INSERT INTO attachments_new (id, order_id, filename, stored_name, file_size, mime_type, uploaded_at)
+                    SELECT id, order_id, filename, stored_name, file_size, mime_type, uploaded_at FROM attachments
+                """)
+                cur.execute("DROP TABLE attachments")
+                cur.execute("ALTER TABLE attachments_new RENAME TO attachments")
+                cur.execute("PRAGMA foreign_keys=ON")
+                print("[migrate] Rebuilt attachments table (announcement support)")
+
         # Create order_statuses table if not exists
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS order_statuses (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                slug TEXT UNIQUE NOT NULL,
-                label TEXT NOT NULL,
-                color TEXT NOT NULL DEFAULT 'bg-primary',
-                sort_order INTEGER NOT NULL DEFAULT 0,
-                is_active INTEGER NOT NULL DEFAULT 1,
-                is_system INTEGER NOT NULL DEFAULT 0
-            )
-        """)
-        print("[migrate] Created order_statuses table")
+        cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='order_statuses'")
+        if not cur.fetchone():
+            cur.execute("""
+                CREATE TABLE order_statuses (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    slug TEXT UNIQUE NOT NULL,
+                    label TEXT NOT NULL,
+                    color TEXT NOT NULL DEFAULT 'bg-primary',
+                    sort_order INTEGER NOT NULL DEFAULT 0,
+                    is_active INTEGER NOT NULL DEFAULT 1,
+                    is_system INTEGER NOT NULL DEFAULT 0
+                )
+            """)
+            print("[migrate] Created order_statuses table")
 
         # Insert default system statuses if table is empty
         cur.execute("SELECT COUNT(*) FROM order_statuses")
@@ -81,11 +124,18 @@ def _migrate_db(db_path: str) -> None:
             )
             print("[migrate] Inserted default statuses")
 
+        # WAL mode: concurrent readers + single writer (important for threaded gunicorn)
+        # fetchone() consumes the result row — otherwise the final commit() fails
+        # with "cannot commit transaction - SQL statements in progress"
+        cur.execute("PRAGMA journal_mode=WAL")
+        cur.fetchone()
+
         conn.commit()
         conn.close()
-    except sqlite3.OperationalError:
-        # DB file doesn't exist yet — perfectly fine
-        pass
+    except sqlite3.OperationalError as e:
+        # Missing DB file on first run is fine; anything else must be visible in logs
+        if os.path.exists(db_path):
+            print(f"[migrate] WARNING: {e}")
 
 
 def _ensure_admin() -> None:

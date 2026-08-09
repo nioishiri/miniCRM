@@ -16,4 +16,5 @@ RUN mkdir -p /app/instance
 EXPOSE 8080
 
 # Use gunicorn for production
-CMD ["gunicorn", "-b", "0.0.0.0:8080", "run:app"]
+# 2 workers x 8 threads: browser keep-alive connections won't block the site
+CMD ["gunicorn", "-b", "0.0.0.0:8080", "--workers", "2", "--threads", "8", "--timeout", "60", "run:app"]

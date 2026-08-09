@@ -19,7 +19,7 @@
           <div class="alert alert-danger alert-crm">{{ error }}</div>
         {% endif %}
 
-        <form method="post">
+        <form method="post" enctype="multipart/form-data">
           <div class="mb-3">
             <label for="title" class="form-label fw-semibold">Заголовок <span class="text-danger">*</span></label>
             <input type="text" name="title" id="title"
@@ -28,7 +28,7 @@
                    required autofocus>
           </div>
 
-          <div class="mb-4">
+          <div class="mb-3">
             <label for="body" class="form-label fw-semibold">Текст</label>
             <textarea name="body" id="body" rows="6"
                       class="form-control"
@@ -36,6 +36,28 @@
                       style="resize:vertical;">{{ prev_body if prev_body else (announcement.body if announcement else '') }}</textarea>
             <div class="form-text">Каждая новая строка — отдельный абзац</div>
           </div>
+
+          <div class="mb-4">
+            <label for="files" class="form-label fw-semibold"><i class="bi bi-paperclip me-1"></i> Вложения</label>
+            <input type="file" name="files" id="files" class="form-control" multiple>
+            <div class="form-text">PDF, Word, Excel, картинки, архивы — до 16 МБ каждый</div>
+          </div>
+
+          {% if announcement and announcement.attachments %}
+          <div class="mb-4">
+            <label class="form-label fw-semibold">Текущие вложения</label>
+            <div class="list-group">
+              {% for att in announcement.attachments %}
+              <div class="list-group-item d-flex align-items-center gap-2">
+                <i class="bi {{ att.icon_class }}"></i>
+                <span class="flex-grow-1 text-truncate">{{ att.filename }}</span>
+                <small class="text-muted">{{ att.format_size(att.file_size) }}</small>
+              </div>
+              {% endfor %}
+            </div>
+            <div class="form-text">Удалить вложения можно на доске объявлений</div>
+          </div>
+          {% endif %}
 
           <div class="d-flex gap-2">
             <button type="submit" class="btn btn-crm btn-crm-primary">

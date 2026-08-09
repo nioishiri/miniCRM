@@ -21,6 +21,12 @@
             · {{ ann.created_at.strftime('%d.%m.%Y в %H:%M') }}
           </small>
           <div class="board-body mt-2">{{ ann.formatted_body() | safe }}</div>
+          {% if ann.attachments %}
+          <div class="list-group mt-3">
+            {% set attachments = ann.attachments %}
+            {% include "_attachment_list.html" %}
+          </div>
+          {% endif %}
         </div>
           <div class="board-actions mt-1">
             <a href="{{ url_for('main.announcement_edit', ann_id=ann.id) }}"

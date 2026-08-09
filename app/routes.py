@@ -42,8 +42,8 @@ def _allowed_file(filename: str) -> bool:
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
-def _save_attachments(order: Order) -> None:
-    """Save uploaded files from request and attach them to order."""
+def _save_attachments(order: Order | None = None, announcement: Announcement | None = None) -> None:
+    """Save uploaded files from request and attach them to an order or announcement."""
     upload_folder = current_app.config["UPLOAD_FOLDER"]
     files = request.files.getlist("files")
 
@@ -57,19 +57,22 @@ def _save_attachments(order: Order) -> None:
             continue
 
         stored = Attachment.generate_stored_name(original)
-        f.save(os.path.join(upload_folder, stored))
+        filepath = os.path.join(upload_folder, stored)
+        f.save(filepath)
 
         mime = f.mimetype or mimetypes.guess_type(original)[0] or "application/octet-stream"
-        filepath = os.path.join(upload_folder, stored)
         size = os.path.getsize(filepath) if os.path.exists(filepath) else 0
 
         attachment = Attachment(
-            order=order,
             filename=original,
             stored_name=stored,
             file_size=size,
             mime_type=mime,
         )
+        if order is not None:
+            attachment.order = order
+        if announcement is not None:
+            attachment.announcement = announcement
         db.session.add(attachment)
         flash(f"Файл «{original}» прикреплён", "success")
 
@@ -118,7 +121,7 @@ def login():
     return render_template("login.html")
 
 
-@bp.route("/logout")
+@bp.route("/logout", methods=["GET", "POST"])
 @login_required
 def logout():
     logout_user()
@@ -135,7 +138,8 @@ def index():
     query = Order.query.options(joinedload(Order.creator)).order_by(Order.updated_at.desc())
 
     if status_filter == "active":
-        query = query.filter(Order.status.in_(["new", "in_progress"]))
+        # Active = everything except done/cancelled (includes custom statuses)
+        query = query.filter(Order.status.notin_(["done", "cancelled"]))
     elif status_filter == "done":
         query = query.filter_by(status="done")
     elif status_filter == "cancelled":
@@ -260,7 +264,9 @@ def delete_attachment(attachment_id: int):
     db.session.delete(att)
     db.session.commit()
     flash(f"Файл «{att.filename}» удалён", "secondary")
-    return redirect(url_for("main.order_detail", order_id=order_id))
+    if order_id:
+        return redirect(url_for("main.order_detail", order_id=order_id))
+    return redirect(url_for("main.board_list"))
 
 
 # ===================================================================
@@ -290,6 +296,7 @@ def announcement_create():
         a = Announcement(title=title, body=body, creator_id=current_user.id)
         db.session.add(a)
         db.session.commit()
+        _save_attachments(announcement=a)
         flash("Объявление опубликовано", "success")
         return redirect(url_for("main.board_list"))
 
@@ -314,6 +321,7 @@ def announcement_edit(ann_id: int):
         ann.title = title
         ann.body = body
         db.session.commit()
+        _save_attachments(announcement=ann)
         flash("Объявление обновлено", "success")
         return redirect(url_for("main.board_list"))
 
@@ -324,6 +332,8 @@ def announcement_edit(ann_id: int):
 @bp.route("/board/<int:ann_id>/delete", methods=["POST"])
 def announcement_delete(ann_id: int):
     ann = db.get_or_404(Announcement, ann_id)
+    for att in ann.attachments:
+        _remove_file(att.stored_name)
     db.session.delete(ann)
     db.session.commit()
     flash("Объявление удалено", "secondary")
