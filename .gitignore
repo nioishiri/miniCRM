@@ -44,6 +44,21 @@ data/
 # Environment variables
 .env
 
+# Logs
+*.log
+
+# Testing / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Type checkers / linters
+.mypy_cache/
+.ruff_cache/
+
+# Misc project-specific
+sqlite3
+
 # OS files
 .DS_Store
 Thumbs.db
