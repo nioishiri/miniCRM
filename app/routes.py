@@ -167,7 +167,7 @@ def order_create():
         _save_attachments(order)
 
         flash("Заказ создан!", "success")
-        return redirect(url_for("main.order_detail", order_id=order.id))
+        return redirect(url_for("main.index"))
 
     return render_template("order_form.html")
 # ---------------------------------------------------------------------------
