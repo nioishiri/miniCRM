@@ -7,9 +7,11 @@
 
 - 👥 **Авторизация** — админы и менеджеры
 - 📦 **Заказы** — создание, смена статуса, удаление, прикрепление файлов
+- 💬 **Комментарии** — обсуждение заказов и объявлений с вложениями
 - 📊 **Фильтрация** — вкладки «Активные», «Выполненные», «Отменённые»
 - 📎 **Вложения** — PDF, Word, Excel, картинки, архивы (до 16 МБ)
 - 📢 **Доска объявлений** — публикация новостей
+- 🏷️ **Статусы** — настраиваемые статусы заказов через админку
 - 🛡️ **Админка** — создание/блокировка пользователей, смена паролей
 - 🎨 **Современный UI** — Bootstrap 5 + Bootstrap Icons, светлая тема, адаптив
 
@@ -18,7 +20,7 @@
 ```bash
 # Клонировать
 git clone https://github.com/nioishiri/miniCRM
-cd mini-crm
+cd miniCRM
 
 # Запустить
 docker compose up -d
@@ -51,27 +53,36 @@ python run.py create-user manager pass123 "Иван Петров"
 
 ```
 crm/
-├── run.py                   # Точка входа + CLI
-├── requirements.txt         # Flask, SQLAlchemy, Gunicorn
-├── Dockerfile               # Production-образ c Gunicorn
-├── docker-compose.yml       # Docker Compose
-├── ARCHITECTURE.md          # Техническая документация
+├── run.py                     # Точка входа + CLI
+├── requirements.txt           # Flask, SQLAlchemy, Gunicorn
+├── Dockerfile                 # Production-образ c Gunicorn
+├── docker-compose.yml         # Docker Compose
+├── ARCHITECTURE.md            # Техническая документация
 └── app/
-    ├── __init__.py           # Фабрика приложения, Flask-Login, миграции
-    ├── models.py             # Модели: User, Order, Attachment, Announcement
-    ├── routes.py             # Все маршруты (заказы, доска, админка, auth)
+    ├── __init__.py             # Фабрика приложения, Flask-Login, миграции
+    ├── models.py               # Модели: User, Order, OrderComment, Announcement,
+    │                           #         AnnouncementComment, Attachment, OrderStatus
+    ├── routes.py               # Все маршруты (заказы, доска, комментарии, админка, auth)
     └── templates/
-        ├── base.html         # Базовый шаблон (навигация, стили)
-        ├── index.html        # Таблица заказов + вкладки
-        ├── order_form.html   # Форма создания заказа
-        ├── order_detail.html # Детали заказа + вложения + смена статуса
-        ├── login.html        # Страница входа
-        ├── announce_list.html # Доска объявлений
-        ├── announcement_form.html # Форма создания/редактирования объявления
-        └── admin_users.html  # Админка: управление пользователями
+        ├── base.html           # Базовый шаблон (навигация, стили, дизайн-система)
+        ├── index.html          # Таблица заказов + вкладки
+        ├── order_form.html     # Форма создания заказа
+        ├── order_detail.html   # Детали заказа + комментарии + вложения + смена статуса
+        ├── login.html          # Страница входа
+        ├── profile.html        # Профиль: смена пароля
+        ├── announce_list.html  # Доска объявлений + комментарии
+        ├── announcement_form.html  # Форма создания/редактирования объявления
+        ├── admin_users.html    # Админка: управление пользователями
+        ├── admin_statuses.html # Админка: управление статусами заказов
+        ├── _attachment_list.html   # Общий компонент: список вложений
+        └── 500.html            # Страница ошибки сервера
 ```
 
 ## Статусы заказов
+
+Статусы настраиваются в админке (`/admin/statuses`). Можно менять названия, цвета, порядок, скрывать неиспользуемые и добавлять новые.
+
+По умолчанию создаются четыре системных статуса:
 
 | Статус | Пояснение |
 |--------|-----------|
