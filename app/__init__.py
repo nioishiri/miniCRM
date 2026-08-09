@@ -91,9 +91,10 @@ def _migrate_db(db_path: str) -> None:
                     )
                 """)
                 announcement_id_value = "announcement_id" if has_ann_col else "NULL"
+                comment_id_value = "comment_id" if has_comment_col else "NULL"
                 cur.execute(f"""
                     INSERT INTO attachments_new (id, order_id, announcement_id, comment_id, filename, stored_name, file_size, mime_type, uploaded_at)
-                    SELECT id, order_id, {announcement_id_value}, comment_id, filename, stored_name, file_size, mime_type, uploaded_at FROM attachments
+                    SELECT id, order_id, {announcement_id_value}, {comment_id_value}, filename, stored_name, file_size, mime_type, uploaded_at FROM attachments
                 """)
                 cur.execute("DROP TABLE attachments")
                 cur.execute("ALTER TABLE attachments_new RENAME TO attachments")
