@@ -1,4 +1,5 @@
 import os
+import mimetypes
 from flask import (
     Blueprint, current_app, flash, redirect,
     render_template, request, send_from_directory, url_for,
@@ -56,7 +57,7 @@ def _save_attachments(order: Order) -> None:
         stored = Attachment.generate_stored_name(original)
         f.save(os.path.join(upload_folder, stored))
 
-        mime = f.mimetype or "application/octet-stream"
+        mime = f.mimetype or mimetypes.guess_type(original)[0] or "application/octet-stream"
         filepath = os.path.join(upload_folder, stored)
         size = os.path.getsize(filepath) if os.path.exists(filepath) else 0
 
@@ -167,7 +168,7 @@ def order_create():
         _save_attachments(order)
 
         flash("Заказ создан!", "success")
-        return redirect(url_for("main.index"))
+        return redirect(url_for("main.order_detail", order_id=order.id))
 
     return render_template("order_form.html")
 # ---------------------------------------------------------------------------
@@ -196,7 +197,7 @@ def order_change_status(order_id: int):
     order.status = new_status
     db.session.commit()
     flash(f"Статус изменён на «{order.status_label()}»", "info")
-    return redirect(url_for("main.order_detail", order_id=order.id))
+    return redirect(url_for("main.index"))
 
 
 # ---------------------------------------------------------------------------
