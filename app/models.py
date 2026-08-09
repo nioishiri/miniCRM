@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 import os
 import uuid
+import random
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import UserMixin
 from app import db
@@ -15,6 +16,7 @@ class User(UserMixin, db.Model):
     display_name = db.Column(db.String(200), nullable=False, default="")
     role = db.Column(db.String(20), nullable=False, default="user")
     is_active_user = db.Column(db.Boolean, nullable=False, default=True)
+    color = db.Column(db.String(7), nullable=False, default="#6C757D")  # Hex color
     created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 
     orders = db.relationship("Order", back_populates="creator", lazy="dynamic", order_by="Order.created_at.desc()")
@@ -29,6 +31,17 @@ class User(UserMixin, db.Model):
     @property
     def name_or_username(self) -> str:
         return self.display_name or self.username
+
+    @staticmethod
+    def generate_random_color() -> str:
+        """Generate a random hex color for user badge."""
+        colors = [
+            "#4A90D9", "#50C878", "#FF6B6B", "#FFA07A", "#9B59B6",
+            "#3498DB", "#E74C3C", "#2ECC71", "#F39C12", "#1ABC9C",
+            "#9B59B6", "#34495E", "#16A085", "#C0392B", "#8E44AD",
+            "#2980B9", "#27AE60", "#D35400", "#7F8C8D", "#E67E22",
+        ]
+        return random.choice(colors)
 
     def __repr__(self) -> str:
         return f"<User {self.username}>"
@@ -76,9 +89,17 @@ class Order(db.Model):
     }
 
     def status_label(self) -> str:
+        """Get status label from database or fallback to system choices."""
+        status = OrderStatus.query.filter_by(slug=self.status, is_active=True).first()
+        if status:
+            return status.label
         return dict(self.STATUS_CHOICES).get(self.status, self.status)
 
     def status_badge(self) -> str:
+        """Get status badge HTML from database or fallback."""
+        status = OrderStatus.query.filter_by(slug=self.status, is_active=True).first()
+        if status:
+            return f'<span class="badge {status.color}">{status.label}</span>'
         css = self.STATUS_COLORS.get(self.status, "badge bg-light text-dark")
         return f'<span class="{css}">{self.status_label()}</span>'
 
@@ -170,3 +191,32 @@ class Announcement(db.Model):
 
     def __repr__(self) -> str:
         return f"<Announcement #{self.id}: {self.title}>"
+
+
+# ===================================================================
+# Order Statuses (customizable)
+# ===================================================================
+
+class OrderStatus(db.Model):
+    __tablename__ = "order_statuses"
+
+    id = db.Column(db.Integer, primary_key=True)
+    slug = db.Column(db.String(50), unique=True, nullable=False, index=True)
+    label = db.Column(db.String(100), nullable=False)
+    color = db.Column(db.String(100), nullable=False, default="bg-primary")
+    sort_order = db.Column(db.Integer, nullable=False, default=0)
+    is_active = db.Column(db.Boolean, nullable=False, default=True)
+    is_system = db.Column(db.Boolean, nullable=False, default=False)
+
+    @staticmethod
+    def get_all_active():
+        """Get all active statuses ordered by sort_order."""
+        return OrderStatus.query.filter_by(is_active=True).order_by(OrderStatus.sort_order).all()
+
+    @staticmethod
+    def get_all():
+        """Get all statuses ordered by sort_order."""
+        return OrderStatus.query.order_by(OrderStatus.sort_order).all()
+
+    def __repr__(self) -> str:
+        return f"<OrderStatus {self.slug}: {self.label}>"

@@ -24,6 +24,7 @@ def _migrate_db(db_path: str) -> None:
         for table, col_specs in [
             ("orders",         [("creator_id", "INTEGER")]),
             ("announcements",  [("creator_id", "INTEGER")]),
+            ("users",          [("color", "TEXT")]),
         ]:
             cur.execute(f"PRAGMA table_info({table})")
             existing_cols = {row[1] for row in cur.fetchall()}
@@ -31,6 +32,35 @@ def _migrate_db(db_path: str) -> None:
                 if col_name not in existing_cols:
                     cur.execute(f"ALTER TABLE {table} ADD COLUMN {col_name} {col_type}")
                     print(f"[migrate] Added {table}.{col_name}")
+
+        # Create order_statuses table if not exists
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS order_statuses (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                slug TEXT UNIQUE NOT NULL,
+                label TEXT NOT NULL,
+                color TEXT NOT NULL DEFAULT 'bg-primary',
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                is_active INTEGER NOT NULL DEFAULT 1,
+                is_system INTEGER NOT NULL DEFAULT 0
+            )
+        """)
+        print("[migrate] Created order_statuses table")
+
+        # Insert default system statuses if table is empty
+        cur.execute("SELECT COUNT(*) FROM order_statuses")
+        if cur.fetchone()[0] == 0:
+            default_statuses = [
+                ("new", "Новый", "bg-primary", 0, 1, 1),
+                ("in_progress", "В работе", "bg-warning text-dark", 1, 1, 1),
+                ("done", "Выполнен", "bg-success", 2, 1, 1),
+                ("cancelled", "Отменён", "bg-secondary", 3, 1, 1),
+            ]
+            cur.executemany(
+                "INSERT INTO order_statuses (slug, label, color, sort_order, is_active, is_system) VALUES (?, ?, ?, ?, ?, ?)",
+                default_statuses
+            )
+            print("[migrate] Inserted default statuses")
 
         conn.commit()
         conn.close()

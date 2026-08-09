@@ -7,7 +7,7 @@ from flask import (
 from flask_login import login_required, current_user, login_user, logout_user
 from werkzeug.utils import secure_filename
 from app import db
-from app.models import Order, Attachment, Announcement, User
+from app.models import Order, Attachment, Announcement, User, OrderStatus
 
 bp = Blueprint("main", __name__)
 
@@ -178,7 +178,8 @@ def order_create():
 @bp.route("/order/<int:order_id>")
 def order_detail(order_id: int):
     order = db.get_or_404(Order, order_id)
-    return render_template("order_detail.html", order=order)
+    statuses = OrderStatus.get_all_active()
+    return render_template("order_detail.html", order=order, order_statuses=statuses)
 
 
 # ---------------------------------------------------------------------------
@@ -190,7 +191,8 @@ def order_change_status(order_id: int):
     order = db.get_or_404(Order, order_id)
     new_status = request.form.get("status", "").strip()
 
-    valid_statuses = [s[0] for s in Order.STATUS_CHOICES]
+    # Validate against active statuses from database
+    valid_statuses = [s.slug for s in OrderStatus.get_all_active()]
     if new_status not in valid_statuses:
         return "Недопустимый статус", 400
 
@@ -358,6 +360,7 @@ def admin_create_user():
 
     u = User(username=username, display_name=display or username, role=role)
     u.set_password(password)
+    u.color = User.generate_random_color()
     db.session.add(u)
     db.session.commit()
     flash(f"Пользователь «{username}» создан", "success")
@@ -392,3 +395,110 @@ def admin_reset_password(user_id: int):
     db.session.commit()
     flash(f"Пароль пользователя «{u.username}» изменён", "info")
     return redirect(url_for("main.admin_users"))
+
+
+# ===================================================================
+# Custom Statuses Management (Admin only)
+# ===================================================================
+
+@login_required
+@admin_required
+@bp.route("/admin/statuses", methods=["GET", "POST"])
+def admin_statuses():
+    if request.method == "POST":
+        slug = request.form.get("slug", "").strip().lower().replace(" ", "_")
+        label = request.form.get("label", "").strip()
+        color = request.form.get("color", "bg-primary").strip()
+
+        if not slug or not label:
+            flash("Slug и название обязательны", "danger")
+            return redirect(url_for("main.admin_statuses"))
+
+        if OrderStatus.query.filter_by(slug=slug).first():
+            flash(f"Статус «{slug}» уже существует", "danger")
+            return redirect(url_for("main.admin_statuses"))
+
+        max_order = db.session.query(db.func.max(OrderStatus.sort_order)).scalar() or 0
+        status = OrderStatus(slug=slug, label=label, color=color, sort_order=max_order + 1)
+        db.session.add(status)
+        db.session.commit()
+        flash(f"Статус «{label}» создан", "success")
+        return redirect(url_for("main.admin_statuses"))
+
+    statuses = OrderStatus.get_all()
+    return render_template("admin_statuses.html", statuses=statuses)
+
+
+@login_required
+@admin_required
+@bp.route("/admin/statuses/<int:status_id>/edit", methods=["POST"])
+def admin_edit_status(status_id: int):
+    status = db.get_or_404(OrderStatus, status_id)
+    label = request.form.get("label", "").strip()
+    color = request.form.get("color", "bg-primary").strip()
+    is_active = request.form.get("is_active") == "on"
+
+    if not label:
+        flash("Название обязательно", "danger")
+        return redirect(url_for("main.admin_statuses"))
+
+    status.label = label
+    status.color = color
+    status.is_active = is_active
+    db.session.commit()
+    flash(f"Статус «{label}» обновлён", "success")
+    return redirect(url_for("main.admin_statuses"))
+
+
+@login_required
+@admin_required
+@bp.route("/admin/statuses/<int:status_id>/delete", methods=["POST"])
+def admin_delete_status(status_id: int):
+    status = db.get_or_404(OrderStatus, status_id)
+
+    if status.is_system:
+        flash("Системные статусы нельзя удалить", "warning")
+        return redirect(url_for("main.admin_statuses"))
+
+    # Check if any orders use this status
+    orders_count = Order.query.filter_by(status=status.slug).count()
+    if orders_count > 0:
+        flash(f"Нельзя удалить: {orders_count} заказов используют этот статус", "danger")
+        return redirect(url_for("main.admin_statuses"))
+
+    db.session.delete(status)
+    db.session.commit()
+    flash(f"Статус «{status.label}» удалён", "secondary")
+    return redirect(url_for("main.admin_statuses"))
+
+
+# ===================================================================
+# User Profile (change password)
+# ===================================================================
+
+@login_required
+@bp.route("/profile", methods=["GET", "POST"])
+def profile():
+    if request.method == "POST":
+        current_password = request.form.get("current_password", "")
+        new_password = request.form.get("new_password", "")
+        confirm_password = request.form.get("confirm_password", "")
+
+        if not current_user.check_password(current_password):
+            flash("Текущий пароль неверный", "danger")
+            return redirect(url_for("main.profile"))
+
+        if len(new_password) < 6:
+            flash("Новый пароль должен содержать минимум 6 символов", "danger")
+            return redirect(url_for("main.profile"))
+
+        if new_password != confirm_password:
+            flash("Новые пароли не совпадают", "danger")
+            return redirect(url_for("main.profile"))
+
+        current_user.set_password(new_password)
+        db.session.commit()
+        flash("Пароль успешно изменён", "success")
+        return redirect(url_for("main.profile"))
+
+    return render_template("profile.html")

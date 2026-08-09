@@ -54,7 +54,15 @@
           <td class="fw-medium">{{ order.customer }}</td>
           <td class="text-muted small">{{ order.description[:60] }}{% if order.description|length > 60 %}…{% endif %}</td>
           <td>{{ order.status_badge() | safe }}</td>
-          <td class="small">{{ order.creator.name_or_username if order.creator else '—' }}</td>
+          <td class="small">
+            {% if order.creator %}
+              <span class="author-badge" style="background:{{ order.creator.color }};">
+                {{ order.creator.name_or_username }}
+              </span>
+            {% else %}
+              —
+            {% endif %}
+          </td>
           <td class="text-muted small">{{ order.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
           <td class="text-end">
             <a class="btn btn-sm btn-outline-secondary btn-crm me-1"

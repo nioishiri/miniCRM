@@ -380,6 +380,34 @@
       display: block;
       margin-bottom: .75rem;
     }
+
+    /* ---------- Author badge with custom color ---------- */
+    .author-badge {
+      display: inline-block;
+      padding: 0.25rem 0.6rem;
+      border-radius: 0.375rem;
+      color: white;
+      font-weight: 500;
+      font-size: 0.8rem;
+      white-space: nowrap;
+    }
+
+    /* ---------- Fix radio buttons alignment in status sidebar ---------- */
+    .card-crm .form-check {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+    .card-crm .form-check-input {
+      margin-top: 0;
+      flex-shrink: 0;
+    }
+    .card-crm .form-check-label {
+      margin-bottom: 0;
+      display: flex;
+      align-items: center;
+    }
   </style>
   {% block extra_head %}{% endblock %}
 </head>
@@ -403,9 +431,15 @@
           <a class="nav-link" href="{{ url_for('main.admin_users') }}">
             <i class="bi bi-gear me-1"></i> Админка
           </a>
+          <a class="nav-link" href="{{ url_for('main.admin_statuses') }}">
+            <i class="bi bi-tags me-1"></i> Статусы
+          </a>
           {% endif %}
           <a class="nav-link" href="{{ url_for('main.order_create') }}">
             <i class="bi bi-plus-circle me-1"></i> Новый заказ
+          </a>
+          <a class="nav-link" href="{{ url_for('main.profile') }}" title="Профиль">
+            <i class="bi bi-person-circle"></i>
           </a>
           <form action="{{ url_for('main.logout') }}" method="post" style="display:inline;margin-left:.25rem;">
             <button type="submit" class="btn btn-sm btn-outline-secondary btn-crm px-2 py-0" title="Выйти">

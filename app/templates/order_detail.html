@@ -24,7 +24,13 @@
         </li>
         <li class="list-group-item d-flex justify-content-between px-4">
           <strong>Автор:</strong>
-          <span>{{ order.creator.name_or_username if order.creator else '—' }}</span>
+          {% if order.creator %}
+            <span class="author-badge" style="background:{{ order.creator.color }};">
+              {{ order.creator.name_or_username }}
+            </span>
+          {% else %}
+            <span>—</span>
+          {% endif %}
         </li>
         <li class="list-group-item d-flex justify-content-between px-4">
           <strong>Создан:</strong>
@@ -128,18 +134,14 @@
       <div class="card-header"><i class="bi bi-arrow-repeat me-1"></i> Изменить статус</div>
       <div class="card-body">
         <form method="post" action="{{ url_for('main.order_change_status', order_id=order.id) }}">
-          {% for value, label in [
-            ('new','Новый'), ('in_progress','В работе'),
-            ('done','Выполнен'), ('cancelled','Отменён')
-          ] %}
+          {% set statuses = order_statuses if order_statuses is defined else [] %}
+          {% for status in statuses %}
             <div class="form-check mb-2">
               <input class="form-check-input" type="radio"
-                     name="status" id="status-{{ value }}" value="{{ value }}"
-                     {% if order.status == value %}checked{% endif %}>
-              <label class="form-check-label" for="status-{{ value }}">
-                <span class="badge {% if value=='new' %}bg-primary{% elif value=='in_progress' %}bg-warning text-dark{% elif value=='done' %}bg-success{% else %}bg-secondary{% endif %}">
-                  {{ label }}
-                </span>
+                     name="status" id="status-{{ status.slug }}" value="{{ status.slug }}"
+                     {% if order.status == status.slug %}checked{% endif %}>
+              <label class="form-check-label" for="status-{{ status.slug }}">
+                <span class="badge {{ status.color }}">{{ status.label }}</span>
               </label>
             </div>
           {% endfor %}
